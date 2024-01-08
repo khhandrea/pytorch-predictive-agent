@@ -1,4 +1,4 @@
-from environments.environment_base import EnvironmentBase
+from environments import EnvironmentBase
 
 class CircularSpectrumEnvironment(EnvironmentBase):
     def reset():
