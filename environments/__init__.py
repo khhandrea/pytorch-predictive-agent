@@ -1,2 +1,2 @@
 from environments.linear_spectrum_environment import LinearSpectrumEnvironment
-from environments.circular_spectrum_environment import CircularSpectrumEnvironment
+# from environments.circular_spectrum_environment import CircularSpectrumEnvironment
