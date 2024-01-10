@@ -15,4 +15,4 @@ class Trainer:
         for _ in range(500):
             action = np.array(choice((0, 1)))
             observation, reward, terminated, truncated, info = self._env.step(action)
-            print(reward, terminated or truncated, self._env.state, observation)
+            # print(reward, terminated or truncated, self._env.state, observation)
