@@ -12,9 +12,9 @@ class LinearSpectrumEnvironment(gym.Env):
         'render_fps': 15,
         }
     
-    def __init__(self, render_mode=None):
+    def __init__(self, render_mode:str=None, agent_speed:int=5):
         self.STEP_MAX = 5000
-        self.STEP_SIZE = 5
+        self._agent_speed = agent_speed
 
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(low=0, high=255, shape=(3,), dtype=np.uint8)
@@ -56,11 +56,11 @@ class LinearSpectrumEnvironment(gym.Env):
 
         # take a step
         if action == 0:
-            if self.state - self.STEP_SIZE > 0:
-                self.state -= self.STEP_SIZE
+            if self.state - self._agent_speed > 0:
+                self.state -= self._agent_speed
         elif action == 1:
-            if self.state + self.STEP_SIZE < 255:
-                self.state += self.STEP_SIZE
+            if self.state + self._agent_speed < 255:
+                self.state += self._agent_speed
 
         observation = self._get_observation()
         reward = 0
@@ -104,6 +104,7 @@ class LinearSpectrumEnvironment(gym.Env):
         BORDER_WIDTH = 2
         BORDER_COLOR = (0, 0, 0)
         AGENT_SIZE = 30
+        AGENT_COLOR = (0, 100, 0)
         agent_x = rect_x + self.state
         agent_y = rect_y + RECT_HEIGHT + 48
 
@@ -132,7 +133,7 @@ class LinearSpectrumEnvironment(gym.Env):
         self._draw_rainbow_rect(canvas, rect_x, rect_y, RECT_WIDTH, RECT_HEIGHT)
 
         # Agent
-        pygame.draw.polygon(canvas, (0, 0, 255), [(agent_x, agent_y),
+        pygame.draw.polygon(canvas, AGENT_COLOR, [(agent_x, agent_y),
                                                 (agent_x + AGENT_SIZE, agent_y),
                                                 (agent_x + AGENT_SIZE // 2, agent_y - AGENT_SIZE)])
 

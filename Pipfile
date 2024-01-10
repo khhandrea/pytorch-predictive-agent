@@ -3,10 +3,19 @@ url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
 
+[[source]]
+url = "https://download.pytorch.org/whl/cu121"
+verify_ssl = false
+name = "pytorch"
+
 [packages]
 numpy = "==1.26.3"
 gymnasium = "==0.29.1"
 pygame = "==2.5.2"
+torchvision = "*"
+torch = {version = "*", index = "pytorch"}
+tensorboard = "==2.15.1"
+packaging = "==23.2"
 
 [dev-packages]
 
