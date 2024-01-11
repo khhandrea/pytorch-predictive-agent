@@ -12,8 +12,8 @@ class LinearSpectrumEnvironment(gym.Env):
         'render_fps': 15,
         }
     
-    def __init__(self, render_mode:str=None, agent_speed:int=5):
-        self.STEP_MAX = 5000
+    def __init__(self, render_mode:str=None, agent_speed: int=5, step_max: int=1000):
+        self.step_max = step_max
         self._agent_speed = agent_speed
 
         self.action_space = spaces.Discrete(2)
@@ -71,7 +71,7 @@ class LinearSpectrumEnvironment(gym.Env):
         # Check truncated
         truncated = False
         self._step += 1
-        if self._step == self.STEP_MAX:
+        if self._step == self.step_max:
             truncated = True
 
         info = self._get_info()
@@ -158,6 +158,6 @@ class LinearSpectrumEnvironment(gym.Env):
     def _get_info(self) -> Dict[str, Any]:
         info = {
             'Environment.name': 'LinearSpectrumEnvironment',
-            'TimeLimit.truncated': self.STEP_MAX,
+            'TimeLimit.truncated': self.step_max,
         }
         return info
