@@ -13,7 +13,9 @@ class Trainer:
         self._agent = PredictAgent(
             action_space=self._env.action_space, 
             random_policy=self._random_policy)
-        self._log_writer = LogWriter(env_name=self._env.__class__.__name__, description=config['description'])
+        self._log_writer = LogWriter(
+            env_name=self._env.__class__.__name__,
+            description=config['description'])
 
         check_env(self._env, skip_render_check=True)
 

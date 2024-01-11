@@ -15,8 +15,10 @@ if __name__ == '__main__':
     parser.add_argument('--description', default='default', help="A name of the experiment")
     args = parser.parse_args()
 
+    render_mode = None
     if args.render_window:
         render_mode = 'human'
+        
     config = {
         'random_policy': args.random_policy,
         'description': args.description

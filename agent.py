@@ -5,9 +5,12 @@ from torch import nn
 
 class FeatureExtractorNetwork(nn.Module):
     def __init__(self):
-        pass
+        self._prev_feature = None
 
-    def feed_obs(self, observation: np.ndarray, prev_action: np.ndarray) -> Tuple[np.ndarray, float]:
+    def feed_obs(self, 
+                 observation: np.ndarray, 
+                 prev_action: np.ndarray,
+                 ) -> Tuple[np.ndarray, float]:
         feature = np.array([])
         loss = 0
 
@@ -17,7 +20,10 @@ class PredictorNetwork(nn.Module):
     def __init__(self):
         pass
 
-    def feed_feature(self, feature: np.ndarray, prev_action) -> Tuple[np.ndarray, float]:
+    def feed_feature(self, 
+                     feature: np.ndarray, 
+                     prev_action: np.ndarray,
+                     ) -> Tuple[np.ndarray, float]:
         z1 = np.array([])
         loss = 0
 
@@ -28,7 +34,7 @@ class ControllerNetwork(nn.Module):
         self._action_space = action_space
         self._random_policy = random_policy
 
-    def get_action(self, input_feature: np.ndarray):
+    def get_action(self, input_feature: np.ndarray) -> np.ndarray:
         if self._random_policy:
             return self._action_space.sample()
         
@@ -48,7 +54,10 @@ class PredictAgent:
         self._predictor = PredictorNetwork()
         self._controller = ControllerNetwork(action_space, random_policy)
 
-    def get_action(self, observation: np.ndarray, reward: float) -> Tuple[np.ndarray, Dict[str, Any]]:
+    def get_action(self, 
+                   observation: np.ndarray, 
+                   reward: float
+                   ) -> Tuple[np.ndarray, Dict[str, Any]]:
         feature, extractor_loss = self._feature_extractor.feed_obs(observation, self._prev_action)
         z1, predictor_loss = self._predictor.feed_feature(feature, self._prev_action)
         policy_loss, value_loss = self._controller.update(reward)
