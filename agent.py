@@ -15,6 +15,10 @@ class FeatureExtractorNetwork(nn.Module):
         loss = 0
 
         return feature, loss
+    
+class InverseNetwork(nn.Module):
+    def __init__(self):
+        pass
 
 class PredictorNetwork(nn.Module):
     def __init__(self):
