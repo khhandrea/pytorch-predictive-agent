@@ -1,12 +1,17 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple
 
 import numpy as np
 from torch import nn
 
 class FeatureExtractorInverseNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self, 
+                 is_linear: bool=False,
+                 layer_shape: Tuple=None
+                 ):
         super().__init__()
         self._prev_feature = None
+        self._feature_extractor = nn.Sequential()
+        self._inverse_network = nn.Sequential()
 
     def forward(self, 
                  observation: np.ndarray, 
