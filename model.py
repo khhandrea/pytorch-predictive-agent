@@ -9,18 +9,18 @@ from torch import optim
 class FeatureExtractorInverseNetwork(nn.Module):
     def __init__(self, 
                  action_shape,
-                 is_linear: bool=False,
-                 layerwise_shape: Tuple=None
+                 is_linear: bool,
+                 layerwise_shape: Tuple,
                  ):
         """
         Args:
+            - action_shape (int)
             - is_linear (bool): 1D np.ndarray or 2D(RGBA) np.ndarray
             - layerwise_shape (Tuple): layerwise feature shape.\
                 E.g. 1d array: [first_shape, middle_shape, …, middle_shape, last_shape],\
                 2d array: [first_channel, (channel, kernel, stride), …, (channel, kernel, stride), last_shape]
 
         Raises:
-            - Expected 'layerwise_shape' argument if is_linear is True
             - Invalid 'layerwise_shape' format (todo)
         """
         if is_linear and layerwise_shape is None:

@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--description', default='default', help="A name of the experiment")
     args = parser.parse_args()
 
-    render_mode = None
+    render_mode = 'none'
     if args.render_window:
         render_mode = 'human'
 

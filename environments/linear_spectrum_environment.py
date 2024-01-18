@@ -8,11 +8,11 @@ import pygame
 
 class LinearSpectrumEnvironment(gym.Env):
     metadata = {
-        'render_modes': ['human'],
+        'render_modes': ['none', 'human'],
         'render_fps': 15,
         }
     
-    def __init__(self, render_mode:str=None, agent_speed: int=5, step_max: int=1000):
+    def __init__(self, render_mode:str, agent_speed: int=5, step_max: int=1000):
         self.step_max = step_max
         self._agent_speed = agent_speed
 

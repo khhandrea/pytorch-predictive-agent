@@ -5,9 +5,9 @@ from torch.utils.tensorboard import SummaryWriter
 
 class LogWriter:
     def __init__(self, 
-                 env_name: str=None, 
-                 description: str='default',
-                 skip_log: bool=False):
+                 env_name: str,
+                 description: str,
+                 skip_log: bool):
         self._skip_log = skip_log
         if self._skip_log:
             return

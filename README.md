@@ -1,7 +1,13 @@
 # Python-predict-agent
 
 ## TODO
-  - random network in 1d feature, discrete action FeatureExtractorInverseNetwork
+  - 1d feature, discrete action FeatureExtractorInverseNetwork
+    - Refactoring
+    - Save and load
+    - Fine tuning
+  - makefile setting
+    - ref. https://kimjingo.tistory.com/203
+  - Rethinking loss at once
   - PredictorNetwork
   - 1d FeatureExtractorInverseNetwork
   - ControllerNetwork
