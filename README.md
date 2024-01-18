@@ -2,7 +2,7 @@
 
 ## TODO
   - 1d feature, discrete action FeatureExtractorInverseNetwork
-    - Refactoring
+    - forward function
     - Save and load
     - Fine tuning
   - makefile setting

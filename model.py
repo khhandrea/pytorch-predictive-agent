@@ -8,41 +8,71 @@ from torch import optim
 
 class FeatureExtractorInverseNetwork(nn.Module):
     def __init__(self, 
-                 action_shape,
+                 observation_space,
+                 action_space,
                  is_linear: bool,
-                 layerwise_shape: Tuple,
+                 feature_extractor_layerwise_shape: Tuple,
+                 inverse_network_layerwise_shape: Tuple
                  ):
         """
         Args:
-            - action_shape (int)
+            - observation_space
+            - action_space
             - is_linear (bool): 1D np.ndarray or 2D(RGBA) np.ndarray
-            - layerwise_shape (Tuple): layerwise feature shape.\
-                E.g. 1d array: [first_shape, middle_shape, …, middle_shape, last_shape],\
-                2d array: [first_channel, (channel, kernel, stride), …, (channel, kernel, stride), last_shape]
+            - feautre_extractor_layerwise_shape (Tuple): \
+                layerwise feature shape of feature extractor. \
+                E.g. 1d array: [middle_shape, …, middle_shape, last_shape], \
+                2d array: [(channel, kernel, stride), …, (channel, kernel, stride), last_shape]. \
+                Warning; don't put first shape!
+            - inverse_network_layerwise_shape (Tuple): \
+                layerwise feature shape of inverse network. \
+                E.g. [middle_shape, …, middle_shape]. \
+                Warning; don’t put first/last shape!
 
         Raises:
             - Invalid 'layerwise_shape' format (todo)
         """
-        if is_linear and layerwise_shape is None:
-            raise Exception("Expected 'layerwise_shape' argument if is_linear is True")
-        
         super().__init__()
         self._prev_observation = None
-        self._inverse_network = nn.Linear(layerwise_shape[-1] * 2, action_shape.n)
+        self._inverse_network = nn.Sequential()
         self._feature_extractor = nn.Sequential()
 
         if is_linear:
-            for idx in range(1, len(layerwise_shape)):
+            feature_extractor_sequence = (observation_space.shape[0],) + feature_extractor_layerwise_shape
+            print(feature_extractor_sequence)
+            self._feature_extractor.add_module(
+                "layer0-linear",
+                nn.Linear(feature_extractor_sequence[0], feature_extractor_sequence[1])
+            )
+            for idx in range(2, len(feature_extractor_sequence)):
                 self._feature_extractor.add_module(
-                    f"layer{idx}", nn.Linear(layerwise_shape[idx - 1], layerwise_shape[idx])
+                    f"layer{idx - 1}-activation",
+                    nn.LeakyReLU()
                 )
+                self._feature_extractor.add_module(
+                    f"layer{idx}-linear", 
+                    nn.Linear(feature_extractor_sequence[idx - 1], feature_extractor_sequence[idx])
+                )
+
+        inverse_network_sequence = (feature_extractor_sequence[-1] * 2,) + inverse_network_layerwise_shape + (action_space.n,)
+        self._inverse_network.add_module(
+            "layer0-linear",
+            nn.Linear(inverse_network_sequence[0], inverse_network_sequence[1])
+        )
+        for idx in range(2, len(inverse_network_sequence)):
+            self._inverse_network.add_module(
+                f"layer{idx - 1}-activation", 
+                nn.LeakyReLU()
+            )
+            self._inverse_network.add_module(
+                f"layer{idx}-linear",
+                nn.Linear(inverse_network_sequence[idx - 1], inverse_network_sequence[idx])
+            )
 
         self._optimizer = optim.Adam(
             list(self._inverse_network.parameters())
             + list(self._feature_extractor.parameters())
         )
-        
-
 
     def feed(self, 
                  observation: Tensor, 
@@ -64,7 +94,8 @@ class FeatureExtractorInverseNetwork(nn.Module):
             self._optimizer.zero_grad()
             prev_feature = self._feature_extractor(self._prev_observation)
             feature = self._feature_extractor(observation)
-            pred_action = self._inverse_network(torch.cat((prev_feature.view(-1, 1), feature.view(-1, 1)), 0).view(-1))
+            inverse_input = torch.cat((prev_feature.view(-1, 1), feature.view(-1, 1)), 0).view(-1)
+            pred_action = self._inverse_network(inverse_input)
             inverse_loss = loss_func(pred_action, prev_action)
             inverse_loss.backward()
             self._optimizer.step()

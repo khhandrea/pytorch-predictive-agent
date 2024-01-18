@@ -16,6 +16,7 @@ class Trainer:
             progress_interval: int=2000):
         self._env = env
         self._agent = PredictiveAgent(
+            observation_space=self._env.observation_space,
             action_space=self._env.action_space, 
             random_policy=random_policy)
         self._log_writer = LogWriter(

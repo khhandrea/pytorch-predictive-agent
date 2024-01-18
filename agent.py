@@ -6,12 +6,17 @@ import torch
 from model import FeatureExtractorInverseNetwork, PredictorNetwork, ControllerNetwork
 
 class PredictiveAgent:
-    def __init__(self, action_space, random_policy):
+    def __init__(self, 
+                 observation_space,
+                 action_space, 
+                 random_policy: bool):
         self._prev_action = None
         self._feature_extractor = FeatureExtractorInverseNetwork(
-            action_shape=action_space,
+            observation_space=observation_space,
+            action_space=action_space,
             is_linear=True,
-            layerwise_shape=(3, 3))
+            feature_extractor_layerwise_shape=(64, 32),
+            inverse_network_layerwise_shape=(64,))
         self._predictor = PredictorNetwork()
         self._controller = ControllerNetwork(action_space, random_policy)
 
