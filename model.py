@@ -2,6 +2,7 @@ from typing import Tuple
 
 import numpy as np
 from torch import nn
+from torch import tensor, Tensor, from_numpy
 
 class FeatureExtractorInverseNetwork(nn.Module):
     def __init__(self, 
@@ -14,10 +15,10 @@ class FeatureExtractorInverseNetwork(nn.Module):
         self._inverse_network = nn.Sequential()
 
     def forward(self, 
-                 observation: np.ndarray, 
-                 prev_action: np.ndarray,
-                 ) -> Tuple[np.ndarray, float]:
-        feature = np.array([])
+                 observation: Tensor, 
+                 prev_action: Tensor,
+                 ) -> Tuple[Tensor, float]:
+        feature = tensor([])
         inverse_loss = 0.
 
         return feature, inverse_loss
@@ -27,10 +28,10 @@ class PredictorNetwork(nn.Module):
         super().__init__()
 
     def forward(self, 
-                     feature: np.ndarray, 
-                     prev_action: np.ndarray,
-                     ) -> Tuple[np.ndarray, float]:
-        z1 = np.array([])
+                     feature: Tensor, 
+                     prev_action: Tensor,
+                     ) -> Tuple[Tensor, float, float]:
+        z1 = tensor([])
         predictor_loss = 0.
         extrinsic_reward = 0.
 
@@ -43,13 +44,14 @@ class ControllerNetwork(nn.Module):
         self._random_policy = random_policy
 
     def forward(self, 
-                z: np.ndarray,
-                feature: np.ndarray,
-                extra: np.ndarray,
-                reward: float) -> np.ndarray:
+                z: Tensor,
+                feature: Tensor,
+                extra: Tensor,
+                reward: float) -> Tuple[Tensor, float, float]:
         policy_loss = 0.
         value_loss = 0.
         if self._random_policy:
             action = self._action_space.sample()
+            action = from_numpy(np.asarray(action))
             
         return action, policy_loss, value_loss

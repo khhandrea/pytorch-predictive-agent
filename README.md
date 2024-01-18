@@ -1,5 +1,4 @@
 - TODO
-  - Change types to Tensor
   - random network in 1d feature, discrete action FeatureExtractorInverseNetwork
   - PredictorNetwork
   - 1d FeatureExtractorInverseNetwork
