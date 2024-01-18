@@ -16,6 +16,7 @@ torchvision = "*"
 torch = {version = "*", index = "pytorch"}
 tensorboard = "==2.15.1"
 packaging = "==23.2"
+mypy = "==1.8.0"
 
 [dev-packages]
 
