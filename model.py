@@ -4,7 +4,6 @@ import numpy as np
 import torch
 from torch import nn
 from torch import tensor, Tensor
-from torch import optim
 
 class FeatureExtractorInverseNetwork(nn.Module):
     def __init__(self, 
@@ -34,8 +33,8 @@ class FeatureExtractorInverseNetwork(nn.Module):
         """
         super().__init__()
         self._prev_observation = None
-        self._inverse_network = nn.Sequential()
         self._feature_extractor = nn.Sequential()
+        self._inverse_network = nn.Sequential()
 
         if is_linear:
             feature_extractor_sequence = (observation_space.shape[0],) + feature_extractor_layerwise_shape
@@ -68,16 +67,14 @@ class FeatureExtractorInverseNetwork(nn.Module):
                 f"layer{idx}-linear",
                 nn.Linear(inverse_network_sequence[idx - 1], inverse_network_sequence[idx])
             )
-
-        self._optimizer = optim.Adam(
-            list(self._inverse_network.parameters())
-            + list(self._feature_extractor.parameters())
+        self._inverse_network.add_module(
+            f"layer{len(inverse_network_sequence) - 1}-activation",
+            nn.Softmax(dim=0)
         )
 
-    def feed(self, 
-                 observation: Tensor, 
-                 prev_action: Tensor,
-                 ) -> Tuple[Tensor, float]:
+    def forward(self, 
+                 observation: Tensor
+                 ) -> Tuple[Tensor, Tensor]:
         """
         Args:
             - observation (Tensor)
@@ -85,49 +82,42 @@ class FeatureExtractorInverseNetwork(nn.Module):
 
         Returns:
             - feature (Tensor)
-            - inverse_loss (float)
+            - pred_action (Tensor)
         """
-        loss_func = nn.CrossEntropyLoss()
-        inverse_loss = 0.
+        pred_action = None
 
-        if self._prev_observation is not None:
-            self._optimizer.zero_grad()
+        if self._prev_observation is None:
+            feature = self._feature_extractor(observation)
+        else:
             prev_feature = self._feature_extractor(self._prev_observation)
             feature = self._feature_extractor(observation)
             inverse_input = torch.cat((prev_feature.view(-1, 1), feature.view(-1, 1)), 0).view(-1)
             pred_action = self._inverse_network(inverse_input)
-            inverse_loss = loss_func(pred_action, prev_action)
-            inverse_loss.backward()
-            self._optimizer.step()
-        else:
-            feature = self._feature_extractor(observation)
         self._prev_observation = observation
 
-        return feature, inverse_loss
+        return feature, pred_action
 
 class PredictorNetwork(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def feed(self, 
+    def forward(self, 
                      feature: Tensor, 
                      prev_action: Tensor,
-                     ) -> Tuple[Tensor, float, float]:
+                     ) -> Tuple[Tensor, Tensor]:
         """
         Args:
             - feature (Tensor)
-            - prev_action (Tensor)
+            - pred_feature (Tensor)
 
         Returns:
             - z (Tensor)
-            - extrinsic_reward (float)
-            - predictor_loss (float)
+            - pred_action (Tensor)
         """
         z = tensor([])
-        predictor_loss = 0.
-        extrinsic_reward = 0.
+        pred_feature = tensor([])
 
-        return z, extrinsic_reward, predictor_loss
+        return z, pred_feature
 
 class ControllerNetwork(nn.Module):
     def __init__(self, action_space, random_policy):
@@ -135,7 +125,7 @@ class ControllerNetwork(nn.Module):
         self._action_space = action_space
         self._random_policy = random_policy
 
-    def feed(self, 
+    def forward(self, 
                 z: Tensor,
                 feature: Tensor,
                 extra: Tensor,
@@ -150,10 +140,9 @@ class ControllerNetwork(nn.Module):
             - policy_loss (float)
             - value_loss (float)
         """
-        policy_loss = 0.
-        value_loss = 0.
+        values = tensor([])
         if self._random_policy:
             action = self._action_space.sample()
             action = torch.from_numpy(np.asarray(action))
             
-        return action, policy_loss, value_loss
+        return action, values
