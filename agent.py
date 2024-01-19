@@ -1,3 +1,4 @@
+import os
 from typing import Tuple, Dict, Any
 
 import numpy as np
@@ -12,9 +13,12 @@ class PredictiveAgent:
     def __init__(self, 
                  observation_space,
                  action_space, 
-                 random_policy: bool):
+                 random_policy: bool,
+                 path: str):
         self._prev_action = None
         self._action_space = action_space
+        self._path = path
+
         self._feature_extractor = FeatureExtractorInverseNetwork(
             observation_space=observation_space,
             action_space=self._action_space,
@@ -67,3 +71,29 @@ class PredictiveAgent:
         }
 
         return action, values
+    
+    def _makedir_and_save_model(self, state_dict, network, description):
+        path = os.path.join('checkpoints', self._path, network)
+        if not os.path.exists(path):
+            os.makedirs(path)
+        torch.save(
+            state_dict,
+            os.path.join(path, description) + '.pt'
+        )
+    
+    def save(self, description: str):
+        self._makedir_and_save_model(
+            self._feature_extractor.state_dict(),
+            'feature-extractor-inverse-network',
+            description)
+        self._makedir_and_save_model(
+            self._predictor.state_dict(),
+            'predictor-network',
+            description)
+        self._makedir_and_save_model(
+            self._controller.state_dict(),
+            'controller_network',
+            description)
+    
+    def load(self):
+        pass

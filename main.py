@@ -15,6 +15,8 @@ if __name__ == '__main__':
     parser.add_argument('--agent_speed', type=int, default=5, help="Set the agent's moving speed")
     parser.add_argument('--step_max', type=int, default=1000, help="Max step of one episode")
     parser.add_argument('--description', default='default', help="A name of the experiment")
+    parser.add_argument('--save_interval', type=int, default=50000, help="Per how many steps to save the model")
+    parser.add_argument('--skip_save', action='store_true', help="The model won’t be saved")
     args = parser.parse_args()
 
     render_mode = 'none'
@@ -30,6 +32,8 @@ if __name__ == '__main__':
         random_policy=args.random_policy,
         description=args.description,
         skip_log=args.skip_log,
-        progress_interval=args.progress_interval
+        progress_interval=args.progress_interval,
+        save_interval=args.save_interval,
+        skip_save=args.skip_save
         )
     trainer.train()

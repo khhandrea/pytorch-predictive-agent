@@ -1,21 +1,30 @@
 # Python-predict-agent
 
 ## TODO
-  - 1d feature, discrete action FeatureExtractorInverseNetwork
-    - forward function
-    - Input regularization
-    - Save and load
-    - Fine tuning
-  - makefile setting
-    - ref. https://kimjingo.tistory.com/203
-  - Rethinking loss at once
+  v 1d feature, discrete action FeatureExtractorInverseNetwork
+  v average loss
+  v Save
+  v Load
+  
+  - Jan 3rd
   - PredictorNetwork
-  - 1d FeatureExtractorInverseNetwork
   - ControllerNetwork
   - CircularEnvironment
+
+  - Jan 4th
   - ComplexEnvironment
   - 2d FeatureExtractorInverseNetwork
-  - continuous action
+  - Continuous action
+
+  - Others
+  - Name to predictive-agent
+  - Arguments convention (white space)
+  - Best checkpoint
+  - Fine tuning
+  - Makefile setting
+    - ref. https://kimjingo.tistory.com/203
+  - Rethinking loss at once
+  - Theoretical proof of convergence
 
 ## Usage
 - Train help
