@@ -24,7 +24,7 @@ class PredictiveAgent:
         self._predictor = PredictorNetwork()
         self._controller = ControllerNetwork(self._action_space, random_policy)
 
-        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-7)
+        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-4)
 
     def get_action(self, 
                    observation: np.ndarray, 
@@ -41,7 +41,6 @@ class PredictiveAgent:
         if self._prev_action is None:
             inverse_loss = 0.
         else:
-            # print(self._prev_action, pred_prev_action)
             inverse_loss = loss_ce(self._prev_action, pred_prev_action)
             inverse_loss.backward()
             self._feature_extractor_optimizer.step()

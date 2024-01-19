@@ -33,11 +33,12 @@ class Trainer:
                         inverse=None, 
                         predictor=None, 
                         policy=None, 
-                        value=None):
+                        value=None,
+                        interval=None):
         if first:
-            print(f"| {'step':<12} | {'inverse':>12} | {'predictor':>12} | {'policy':>12} | {'value':>12} |")
+            print(f"| {'step':>12} | {'inverse':>10} | {'predictor':>10} | {'policy':>10} | {'value':>10} | {'interval':>12} |")
         else:
-            print(f"| {step:<12} | {inverse:>12.4f} | {predictor:>12.4f} | {policy:>12.4f} | {value:>12.4f} |")
+            print(f"| {step:>12} | {inverse:>10.4f} | {predictor:>10.4f} | {policy:>10.4f} | {value:>10.4f} | {interval:>12} |")
             
     def train(self):
         observation, info = self._env.reset()
@@ -48,6 +49,7 @@ class Trainer:
         step = 0
         values = {}
         start_time = time()
+        checkpoint_time = start_time
         while not (terminated or truncated):
             action, values = self._agent.get_action(observation, extrinsic_reward, None)
             observation, extrinsic_reward, terminated, truncated, info = self._env.step(action)
@@ -56,24 +58,28 @@ class Trainer:
             self._log_writer.write(values, step)
 
             if step % self._progress_interval == 0:
+                interval = str(timedelta(seconds = time() - checkpoint_time)).split('.')[0]
                 self._print_progress(
                     False,
                     step,
                     values['loss/inverse_loss'],
                     values['loss/predictor_loss'],
                     values['loss/policy_loss'],
-                    values['loss/value_loss'])
+                    values['loss/value_loss'],
+                    interval)
+                checkpoint_time = time()
             step += 1
+        interval = str(timedelta(seconds = time() - checkpoint_time)).split('.')[0]
         self._print_progress(
             False,
             step - 1,
             values['loss/inverse_loss'],
             values['loss/predictor_loss'],
             values['loss/policy_loss'],
-            values['loss/value_loss'])
+            values['loss/value_loss'],
+            interval)
         print(f"{'terminated' if terminated else 'truncated'} at step {step - 1}")
-        throughput = time() - start_time
-        formatted_time = timedelta(seconds=throughput)
+        formatted_time = timedelta(seconds = time() - start_time)
         print(f"Total time: {formatted_time}")
 
         self._log_writer.close()

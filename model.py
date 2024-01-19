@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 from torch import tensor, Tensor
+from torch.nn import functional as F
 
 class FeatureExtractorInverseNetwork(nn.Module):
     def __init__(self, 
@@ -38,7 +39,6 @@ class FeatureExtractorInverseNetwork(nn.Module):
 
         if is_linear:
             feature_extractor_sequence = (observation_space.shape[0],) + feature_extractor_layerwise_shape
-            print(feature_extractor_sequence)
             self._feature_extractor.add_module(
                 "layer0-linear",
                 nn.Linear(feature_extractor_sequence[0], feature_extractor_sequence[1])
@@ -84,10 +84,10 @@ class FeatureExtractorInverseNetwork(nn.Module):
             - feature (Tensor)
             - pred_action (Tensor)
         """
-        pred_action = None
-
+        observation = F.normalize(observation, dim=0)
         if self._prev_observation is None:
             feature = self._feature_extractor(observation)
+            pred_action = None
         else:
             prev_feature = self._feature_extractor(self._prev_observation)
             feature = self._feature_extractor(observation)
