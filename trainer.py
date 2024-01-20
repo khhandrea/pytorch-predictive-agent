@@ -1,5 +1,6 @@
 from datetime import timedelta
 from time import time
+from typing import Tuple
 from datetime import datetime
 
 from gymnasium.utils.env_checker import check_env
@@ -16,7 +17,8 @@ class Trainer:
             skip_log: bool,
             progress_interval: int,
             save_interval: int,
-            skip_save: bool):
+            skip_save: bool,
+            load_args: Tuple[str, str, str, str]):
         self._env = env
         check_env(self._env, skip_render_check=True)
 
@@ -30,6 +32,7 @@ class Trainer:
             action_space=self._env.action_space, 
             random_policy=random_policy,
             path=path)
+        self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,
             skip_log=skip_log)

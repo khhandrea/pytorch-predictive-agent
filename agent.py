@@ -71,8 +71,41 @@ class PredictiveAgent:
         }
 
         return action, values
+
+    def _get_load_path(self, load_arg: str, network: str) -> str:
+        environment, description, step = load_arg.split('/')
+        return os.path.join('checkpoints', environment, description, network, f'step-{step}') + '.pt'
+
+    def load(self, load_args: Tuple[str, str, str, str]):
+        load, load_inverse, load_predictor, load_controller = load_args
+        if load is None:
+            if (load_inverse is not None) \
+                and (load_predictor is not None) \
+                and (load_controller is not None):
+                # Load models from each files
+                self._feature_extractor.load_state_dict(
+                    torch.load(self._get_load_path(load_inverse, 'feature-extractor-inverse-network')))
+                self._predictor.load_state_dict(
+                    torch.load(self._get_load_path(load_predictor, 'predictor-network')))
+                self._controller.load_state_dict(
+                    torch.load(self._get_load_path(load_controller, 'controller-network')))
+            elif (load_inverse, load_predictor, load_controller) == (None, None, None):
+                return
+            else:
+                raise Exception("Any of '--load_inverse', '--load_predictor' "
+                                + " or '--load_controller' options are missing")
+        else:
+            self._feature_extractor.load_state_dict(
+                torch.load(self._get_load_path(load, 'feature-extractor-inverse-network')))
+            self._predictor.load_state_dict(
+                torch.load(self._get_load_path(load, 'predictor-network')))
+            self._controller.load_state_dict(
+                torch.load(self._get_load_path(load, 'controller-network')))
     
-    def _makedir_and_save_model(self, state_dict, network, description):
+    def _makedir_and_save_model(self, 
+                                state_dict, 
+                                network: str, 
+                                description: str):
         path = os.path.join('checkpoints', self._path, network)
         if not os.path.exists(path):
             os.makedirs(path)
@@ -80,7 +113,7 @@ class PredictiveAgent:
             state_dict,
             os.path.join(path, description) + '.pt'
         )
-    
+
     def save(self, description: str):
         self._makedir_and_save_model(
             self._feature_extractor.state_dict(),
@@ -92,8 +125,5 @@ class PredictiveAgent:
             description)
         self._makedir_and_save_model(
             self._controller.state_dict(),
-            'controller_network',
+            'controller-network',
             description)
-    
-    def load(self):
-        pass

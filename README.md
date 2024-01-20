@@ -5,6 +5,8 @@
   v average loss
   v Save
   v Load
+  - GPU
+  - pygame
   
   - Jan 3rd
   - PredictorNetwork

@@ -17,6 +17,10 @@ if __name__ == '__main__':
     parser.add_argument('--description', default='default', help="A name of the experiment")
     parser.add_argument('--save_interval', type=int, default=50000, help="Per how many steps to save the model")
     parser.add_argument('--skip_save', action='store_true', help="The model won’t be saved")
+    parser.add_argument('--load', default=None, help="Load the networks’ parameters from the entire path")
+    parser.add_argument('--load_inverse', default=None, help="Load feature extractor inverse network parameters from the specific file")
+    parser.add_argument('--load_predictor', default=None, help="Load predictor network parameters from the specific file")
+    parser.add_argument('--load_controller', default=None, help="Load controller network parameters from the specific file")
     args = parser.parse_args()
 
     render_mode = 'none'
@@ -34,6 +38,7 @@ if __name__ == '__main__':
         skip_log=args.skip_log,
         progress_interval=args.progress_interval,
         save_interval=args.save_interval,
-        skip_save=args.skip_save
+        skip_save=args.skip_save,
+        load_args=(args.load, args.load_inverse, args.load_predictor, args.load_controller)
         )
     trainer.train()
