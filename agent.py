@@ -36,7 +36,7 @@ class PredictiveAgent:
             random_policy
             ).to(self._device)
 
-        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-4)
+        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-5)
 
     def get_action(self, 
                    observation: np.ndarray, 
@@ -86,29 +86,26 @@ class PredictiveAgent:
 
     def load(self, load_args: Tuple[str, str, str, str]):
         load, load_inverse, load_predictor, load_controller = load_args
-        if load is None:
-            if (load_inverse is not None) \
-                and (load_predictor is not None) \
-                and (load_controller is not None):
-                # Load models from each files
-                self._feature_extractor.load_state_dict(
-                    torch.load(self._get_load_path(load_inverse, 'feature-extractor-inverse-network')))
-                self._predictor.load_state_dict(
-                    torch.load(self._get_load_path(load_predictor, 'predictor-network')))
-                self._controller.load_state_dict(
-                    torch.load(self._get_load_path(load_controller, 'controller-network')))
-            elif (load_inverse, load_predictor, load_controller) == (None, None, None):
-                return
-            else:
-                raise Exception("Any of '--load_inverse', '--load_predictor' "
-                                + " or '--load_controller' options are missing")
-        else:
+
+        # Load models from one directory
+        if load is not None:
             self._feature_extractor.load_state_dict(
                 torch.load(self._get_load_path(load, 'feature-extractor-inverse-network')))
             self._predictor.load_state_dict(
                 torch.load(self._get_load_path(load, 'predictor-network')))
             self._controller.load_state_dict(
                 torch.load(self._get_load_path(load, 'controller-network')))
+            
+        # Load models from each files
+        if load_inverse is not None:
+            self._feature_extractor.load_state_dict(
+                torch.load(self._get_load_path(load_inverse, 'feature-extractor-inverse-network')))
+        if load_predictor is not None:
+            self._predictor.load_state_dict(
+                torch.load(self._get_load_path(load_predictor, 'predictor-network')))
+        if load_controller is not None:
+            self._controller.load_state_dict(
+                torch.load(self._get_load_path(load_controller, 'controller-network')))
     
     def _makedir_and_save_model(self, 
                                 state_dict, 

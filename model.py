@@ -34,9 +34,9 @@ class FeatureExtractorInverseNetwork(nn.Module):
         """
         super().__init__()
         self._prev_observation = None
-        self._feature_extractor = nn.Sequential()
-        self._inverse_network = nn.Sequential()
 
+        # Feature extractor network
+        self._feature_extractor = nn.Sequential()
         if is_linear:
             feature_extractor_sequence = (observation_space.shape[0],) + feature_extractor_layerwise_shape
             self._feature_extractor.add_module(
@@ -53,6 +53,8 @@ class FeatureExtractorInverseNetwork(nn.Module):
                     nn.Linear(feature_extractor_sequence[idx - 1], feature_extractor_sequence[idx])
                 )
 
+        # Inverse network
+        self._inverse_network = nn.Sequential()
         inverse_network_sequence = (feature_extractor_sequence[-1] * 2,) + inverse_network_layerwise_shape + (action_space.n,)
         self._inverse_network.add_module(
             "layer0-linear",
@@ -71,6 +73,7 @@ class FeatureExtractorInverseNetwork(nn.Module):
             f"layer{len(inverse_network_sequence) - 1}-activation",
             nn.Softmax(dim=0)
         )
+        
 
     def forward(self, 
                  observation: Tensor

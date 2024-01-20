@@ -7,7 +7,7 @@
   v Load
   V GPU
   V pygame
-  - LSTM
+  - Load each
   
   - Jan 3rd
   - PredictorNetwork
@@ -20,12 +20,13 @@
   - Continuous action
 
   - Others
-  - Name to predictive-agent
-  - Arguments convention (white space)
-  - Best checkpoint
   - Fine tuning
+  - Name to predictive-agent
   - Makefile setting
     - ref. https://kimjingo.tistory.com/203
+  - LSTM
+  - parallel modules
+  - Best checkpoint
   - Rethinking loss at once
   - Theoretical proof of convergence
 
