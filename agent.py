@@ -3,9 +3,8 @@ from typing import Tuple, Dict, Any
 
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, optim
 from torch.nn import functional as F
-from torch import optim
 
 from model import FeatureExtractorInverseNetwork, PredictorNetwork, ControllerNetwork
 
@@ -14,19 +13,28 @@ class PredictiveAgent:
                  observation_space,
                  action_space, 
                  random_policy: bool,
-                 path: str):
-        self._prev_action = None
+                 path: str,
+                 cpu: bool):
+        if not cpu and torch.cuda.is_available():
+            self._device = torch.device('cuda')
+        else:
+            self._device = torch.device('cpu')
+        print(f"device: {self._device}")
         self._action_space = action_space
         self._path = path
+        self._prev_action = None
 
         self._feature_extractor = FeatureExtractorInverseNetwork(
             observation_space=observation_space,
             action_space=self._action_space,
             is_linear=True,
             feature_extractor_layerwise_shape=(64, 128),
-            inverse_network_layerwise_shape=(128,))
-        self._predictor = PredictorNetwork()
-        self._controller = ControllerNetwork(self._action_space, random_policy)
+            inverse_network_layerwise_shape=(128,)).to(self._device)
+        self._predictor = PredictorNetwork().to(self._device)
+        self._controller = ControllerNetwork(
+            self._action_space, 
+            random_policy
+            ).to(self._device)
 
         self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-4)
 
@@ -35,7 +43,7 @@ class PredictiveAgent:
                    extrinsic_reward: float,
                    extra: np.ndarray,
                    ) -> Tuple[np.ndarray, Dict[str, Any]]:
-        observation = torch.from_numpy(observation).float()
+        observation = torch.from_numpy(observation).float().to(self._device)
         loss_ce = nn.CrossEntropyLoss()
         loss_mse = nn.MSELoss()
 
@@ -60,7 +68,7 @@ class PredictiveAgent:
         policy_loss = 0.
         value_loss = 0.
         action, values = self._controller(z, feature, extra, reward)
-        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float()
+        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
             'loss/inverse_loss': inverse_loss,

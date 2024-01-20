@@ -5,6 +5,7 @@ from datetime import datetime
 
 from gymnasium.utils.env_checker import check_env
 from gymnasium import Env
+import torch
 
 from agent import PredictiveAgent
 from utils import LogWriter
@@ -18,7 +19,8 @@ class Trainer:
             progress_interval: int,
             save_interval: int,
             skip_save: bool,
-            load_args: Tuple[str, str, str, str]):
+            load_args: Tuple[str, str, str, str],
+            cpu: bool):
         self._env = env
         check_env(self._env, skip_render_check=True)
 
@@ -31,7 +33,8 @@ class Trainer:
             observation_space=self._env.observation_space,
             action_space=self._env.action_space, 
             random_policy=random_policy,
-            path=path)
+            path=path,
+            cpu=cpu)
         self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,

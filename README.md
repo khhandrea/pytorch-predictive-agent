@@ -5,8 +5,9 @@
   v average loss
   v Save
   v Load
-  - GPU
-  - pygame
+  V GPU
+  V pygame
+  - LSTM
   
   - Jan 3rd
   - PredictorNetwork

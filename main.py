@@ -1,5 +1,7 @@
 from argparse import ArgumentParser
 
+import torch
+
 from environments import LinearSpectrumEnvironment
 from trainer import Trainer
 
@@ -17,15 +19,13 @@ if __name__ == '__main__':
     parser.add_argument('--description', default='default', help="A name of the experiment")
     parser.add_argument('--save_interval', type=int, default=50000, help="Per how many steps to save the model")
     parser.add_argument('--skip_save', action='store_true', help="The model won’t be saved")
-    parser.add_argument('--load', default=None, help="Load the networks’ parameters from the entire path")
-    parser.add_argument('--load_inverse', default=None, help="Load feature extractor inverse network parameters from the specific file")
-    parser.add_argument('--load_predictor', default=None, help="Load predictor network parameters from the specific file")
-    parser.add_argument('--load_controller', default=None, help="Load controller network parameters from the specific file")
+    parser.add_argument('--load', default=None, help="Load the networks’ parameters from the entire path. Format: (environment)/(description)/(step)")
+    parser.add_argument('--load_inverse', default=None, help="Load feature extractor inverse network parameters from the specific file. Format: (environment)/(description)/(step)")
+    parser.add_argument('--load_predictor', default=None, help="Load predictor network parameters from the specific file. Format: (environment)/(description)/(step)")
+    parser.add_argument('--load_controller', default=None, help="Load controller network parameters from the specific file. Format: (environment)/(description)/(step)")
+    parser.add_argument('--cpu', action='store_true', help="The program uses the cpu in purpose")
     args = parser.parse_args()
-
-    render_mode = 'none'
-    if args.render_window:
-        render_mode = 'human'
+    render_mode = 'human' if args.render_window else 'none'
 
     env = LinearSpectrumEnvironment(
         render_mode=render_mode,
@@ -39,6 +39,7 @@ if __name__ == '__main__':
         progress_interval=args.progress_interval,
         save_interval=args.save_interval,
         skip_save=args.skip_save,
-        load_args=(args.load, args.load_inverse, args.load_predictor, args.load_controller)
+        load_args=(args.load, args.load_inverse, args.load_predictor, args.load_controller),
+        cpu=args.cpu
         )
     trainer.train()
