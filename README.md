@@ -7,10 +7,11 @@
   v Load
   V GPU
   V pygame
-  - Load each
+  V Load each
+  V PredictorNetwork
+    - Overfitting
   
   - Jan 3rd
-  - PredictorNetwork
   - ControllerNetwork
   - CircularEnvironment
 

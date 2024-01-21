@@ -22,21 +22,29 @@ class PredictiveAgent:
         print(f"device: {self._device}")
         self._action_space = action_space
         self._path = path
-        self._prev_action = None
+        self._prev_action = torch.zeros(self._action_space.n).to(self._device)
 
         self._feature_extractor = FeatureExtractorInverseNetwork(
             observation_space=observation_space,
             action_space=self._action_space,
             is_linear=True,
             feature_extractor_layerwise_shape=(64, 128),
-            inverse_network_layerwise_shape=(128,)).to(self._device)
-        self._predictor = PredictorNetwork().to(self._device)
+            inverse_network_layerwise_shape=(128,),
+            device=self._device
+        ).to(self._device)
+        self._predictor = PredictorNetwork(
+            action_space=self._action_space,
+            hidden_state_size=128,
+            feature_size=128,
+            device=self._device
+        ).to(self._device)
         self._controller = ControllerNetwork(
             self._action_space, 
             random_policy
             ).to(self._device)
 
         self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-5)
+        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=1e-6)
 
     def get_action(self, 
                    observation: np.ndarray, 
@@ -50,24 +58,27 @@ class PredictiveAgent:
         # Feed and update the feature extractor inverse network
         self._feature_extractor_optimizer.zero_grad()
         feature, pred_prev_action = self._feature_extractor(observation)
-        if self._prev_action is None:
-            inverse_loss = 0.
-        else:
-            inverse_loss = loss_ce(self._prev_action, pred_prev_action)
-            inverse_loss.backward()
-            self._feature_extractor_optimizer.step()
+        inverse_loss = loss_ce(self._prev_action, pred_prev_action)
+        inverse_loss.backward()
+        self._feature_extractor_optimizer.step()
 
         # Feed and update the predictor network
-        z, pred_feature = self._predictor(feature, self._prev_action)
-        # predictor_loss = loss_mse(feature, pred_feature)
-        predictor_loss = 0.
+        self._predictor_optimizer.zero_grad()
+        feature = feature.detach()
+        self._prev_action = self._prev_action.detach()
+        hidden_state, pred_feature = self._predictor(feature, self._prev_action)
+        predictor_loss = loss_mse(feature, pred_feature)
+        predictor_loss.backward()
+        self._predictor_optimizer.step()
+        self._predictor.set_hidden_state(hidden_state.detach())
+
         intrinsic_reward = predictor_loss
         reward = extrinsic_reward + intrinsic_reward
 
         # Get a action and update the controller network
         policy_loss = 0.
         value_loss = 0.
-        action, values = self._controller(z, feature, extra, reward)
+        action, values = self._controller(hidden_state, feature, extra, reward)
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {

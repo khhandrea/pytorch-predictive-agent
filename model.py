@@ -12,7 +12,8 @@ class FeatureExtractorInverseNetwork(nn.Module):
                  action_space,
                  is_linear: bool,
                  feature_extractor_layerwise_shape: Tuple,
-                 inverse_network_layerwise_shape: Tuple
+                 inverse_network_layerwise_shape: Tuple,
+                 device: torch.device
                  ):
         """
         Args:
@@ -34,6 +35,8 @@ class FeatureExtractorInverseNetwork(nn.Module):
         """
         super().__init__()
         self._prev_observation = None
+        self._action_space = action_space
+        self._device = device
 
         # Feature extractor network
         self._feature_extractor = nn.Sequential()
@@ -55,7 +58,7 @@ class FeatureExtractorInverseNetwork(nn.Module):
 
         # Inverse network
         self._inverse_network = nn.Sequential()
-        inverse_network_sequence = (feature_extractor_sequence[-1] * 2,) + inverse_network_layerwise_shape + (action_space.n,)
+        inverse_network_sequence = (feature_extractor_sequence[-1] * 2,) + inverse_network_layerwise_shape + (self._action_space.n,)
         self._inverse_network.add_module(
             "layer0-linear",
             nn.Linear(inverse_network_sequence[0], inverse_network_sequence[1])
@@ -90,7 +93,7 @@ class FeatureExtractorInverseNetwork(nn.Module):
         observation = F.normalize(observation, dim=0)
         if self._prev_observation is None:
             feature = self._feature_extractor(observation)
-            pred_action = None
+            pred_action = torch.zeros(self._action_space.n, requires_grad=True).to(self._device)
         else:
             prev_feature = self._feature_extractor(self._prev_observation)
             feature = self._feature_extractor(observation)
@@ -101,8 +104,22 @@ class FeatureExtractorInverseNetwork(nn.Module):
         return feature, pred_action
 
 class PredictorNetwork(nn.Module):
-    def __init__(self):
+    def __init__(self,
+                 action_space,
+                 hidden_state_size: int,
+                 feature_size: int,
+                 device: torch.device):
         super().__init__()
+        self._hidden_state = torch.zeros(hidden_state_size, requires_grad=True).to(device)
+        self._predictor = nn.Linear(hidden_state_size + action_space.n, feature_size)
+        self._hidden_recurrent_layer = nn.LSTM(
+            input_size = action_space.n + feature_size,
+            hidden_size=hidden_state_size,
+            num_layers=1
+            )
+        
+    def set_hidden_state(self, hidden_state: Tensor):
+        self._hidden_state = hidden_state
 
     def forward(self, 
                      feature: Tensor, 
@@ -114,13 +131,16 @@ class PredictorNetwork(nn.Module):
             - pred_feature (Tensor)
 
         Returns:
-            - z (Tensor)
+            - hidden_state (Tensor)
             - pred_action (Tensor)
         """
-        z = tensor([])
-        pred_feature = tensor([])
+        predictor_input = torch.cat((self._hidden_state.view(-1, 1), prev_action.view(-1, 1)), 0).view(-1)
+        pred_feature = self._predictor(predictor_input)
+        
+        hidden_recurrent_input = torch.cat((prev_action.view(-1, 1), feature.view(-1, 1)), 0).view(1, -1)
+        new_hidden_state, _ = self._hidden_recurrent_layer(hidden_recurrent_input)
 
-        return z, pred_feature
+        return new_hidden_state, pred_feature
 
 class ControllerNetwork(nn.Module):
     def __init__(self, action_space, random_policy):
@@ -129,7 +149,7 @@ class ControllerNetwork(nn.Module):
         self._random_policy = random_policy
 
     def forward(self, 
-                z: Tensor,
+                hidden_state: Tensor,
                 feature: Tensor,
                 extra: Tensor,
                 reward: float) -> Tuple[Tensor, float, float]:
