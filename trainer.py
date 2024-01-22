@@ -1,6 +1,6 @@
 from datetime import timedelta
 from time import time
-from typing import Tuple
+from typing import Tuple, List
 from datetime import datetime
 
 from gymnasium.utils.env_checker import check_env
@@ -20,7 +20,13 @@ class Trainer:
             save_interval: int,
             skip_save: bool,
             load_args: Tuple[str, str, str, str],
-            cpu: bool):
+            device: str,
+            lr_args: Tuple[float, float, float],
+            hidden_state_size: int,
+            feature_size: int,
+            predictor_RNN_num_layers: int,
+            feature_extractor_layerwise_shape: List,
+            inverse_network_layerwise_shape: List):
         self._env = env
         check_env(self._env, skip_render_check=True)
 
@@ -34,7 +40,13 @@ class Trainer:
             action_space=self._env.action_space, 
             random_policy=random_policy,
             path=path,
-            cpu=cpu)
+            device=device,
+            lr_args=lr_args,
+            hidden_state_size=hidden_state_size,
+            feature_size=feature_size,
+            predictor_RNN_num_layers=predictor_RNN_num_layers,
+            feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
+            inverse_network_layerwise_shape=inverse_network_layerwise_shape)
         self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,
@@ -73,6 +85,7 @@ class Trainer:
             observation, extrinsic_reward, terminated, truncated, info = self._env.step(action)
 
             values['reward/extrinsic_reward'] = extrinsic_reward
+            values['policy/state'] = self._env.state
             self._log_writer.write(values, step)
             sum_inverse += values['loss/inverse_loss']
             sum_pred += values['loss/predictor_loss']

@@ -108,14 +108,15 @@ class PredictorNetwork(nn.Module):
                  action_space,
                  hidden_state_size: int,
                  feature_size: int,
-                 device: torch.device):
+                 device: torch.device,
+                 num_layers=int):
         super().__init__()
         self._hidden_state = torch.zeros(hidden_state_size, requires_grad=True).to(device)
         self._predictor = nn.Linear(hidden_state_size + action_space.n, feature_size)
         self._hidden_recurrent_layer = nn.LSTM(
             input_size = action_space.n + feature_size,
             hidden_size=hidden_state_size,
-            num_layers=1
+            num_layers=num_layers
             )
         
     def set_hidden_state(self, hidden_state: Tensor):

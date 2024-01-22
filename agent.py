@@ -1,5 +1,5 @@
 import os
-from typing import Tuple, Dict, Any
+from typing import Tuple, List, Dict, Any
 
 import numpy as np
 import torch
@@ -14,37 +14,45 @@ class PredictiveAgent:
                  action_space, 
                  random_policy: bool,
                  path: str,
-                 cpu: bool):
-        if not cpu and torch.cuda.is_available():
-            self._device = torch.device('cuda')
-        else:
-            self._device = torch.device('cpu')
+                 device: str,
+                 lr_args: Tuple[float, float, float],
+                 hidden_state_size: int,
+                 feature_size: int,
+                 predictor_RNN_num_layers: int,
+                 feature_extractor_layerwise_shape: List,
+                 inverse_network_layerwise_shape: List):
+        if device != 'cpu':
+            assert torch.cuda.is_available()
+        self._device = torch.device(device)
         print(f"device: {self._device}")
+
         self._action_space = action_space
         self._path = path
         self._prev_action = torch.zeros(self._action_space.n).to(self._device)
+        feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
         self._feature_extractor = FeatureExtractorInverseNetwork(
             observation_space=observation_space,
             action_space=self._action_space,
             is_linear=True,
-            feature_extractor_layerwise_shape=(64, 128),
-            inverse_network_layerwise_shape=(128,),
+            feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
+            inverse_network_layerwise_shape=inverse_network_layerwise_shape,
             device=self._device
         ).to(self._device)
         self._predictor = PredictorNetwork(
             action_space=self._action_space,
-            hidden_state_size=128,
-            feature_size=128,
-            device=self._device
+            hidden_state_size=hidden_state_size,
+            feature_size=feature_size,
+            device=self._device,
+            num_layers=predictor_RNN_num_layers
         ).to(self._device)
         self._controller = ControllerNetwork(
             self._action_space, 
             random_policy
             ).to(self._device)
 
-        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-4)
-        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=1e-4)
+        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=feature_extractor_inverse_lr)
+        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=predictor_lr)
 
     def get_action(self, 
                    observation: np.ndarray, 
@@ -97,9 +105,10 @@ class PredictiveAgent:
 
     def load(self, load_args: Tuple[str, str, str, str]):
         load, load_inverse, load_predictor, load_controller = load_args
+        print(load_args)
 
         # Load models from one directory
-        if load is not None:
+        if load != 'None':
             self._feature_extractor.load_state_dict(
                 torch.load(self._get_load_path(load, 'feature-extractor-inverse-network')))
             self._predictor.load_state_dict(
@@ -108,13 +117,13 @@ class PredictiveAgent:
                 torch.load(self._get_load_path(load, 'controller-network')))
             
         # Load models from each files
-        if load_inverse is not None:
+        if load_inverse != 'None':
             self._feature_extractor.load_state_dict(
                 torch.load(self._get_load_path(load_inverse, 'feature-extractor-inverse-network')))
-        if load_predictor is not None:
+        if load_predictor != 'None':
             self._predictor.load_state_dict(
                 torch.load(self._get_load_path(load_predictor, 'predictor-network')))
-        if load_controller is not None:
+        if load_controller != 'None':
             self._controller.load_state_dict(
                 torch.load(self._get_load_path(load_controller, 'controller-network')))
     
