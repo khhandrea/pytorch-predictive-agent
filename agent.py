@@ -43,8 +43,8 @@ class PredictiveAgent:
             random_policy
             ).to(self._device)
 
-        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-5)
-        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=1e-6)
+        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=1e-4)
+        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=1e-4)
 
     def get_action(self, 
                    observation: np.ndarray, 
