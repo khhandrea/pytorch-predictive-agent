@@ -105,7 +105,6 @@ class PredictiveAgent:
 
     def load(self, load_args: Tuple[str, str, str, str]):
         load, load_inverse, load_predictor, load_controller = load_args
-        print(load_args)
 
         # Load models from one directory
         if load != 'None':
