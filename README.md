@@ -14,6 +14,7 @@
   - Jan 3rd
   - ControllerNetwork
   - CircularEnvironment
+  - prev_input -> prev_feature with retain_graph=True
 
   - Jan 4th
   - ComplexEnvironment

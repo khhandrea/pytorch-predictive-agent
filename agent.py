@@ -6,9 +6,10 @@ import numpy as np
 import torch
 from torch import nn, optim, Tensor
 from torch.nn import functional as F
+from torch.distributions.categorical import Categorical
 
 from model import ControllerNetwork
-from models import MLP
+from models import MLP, DiscreteLinearActorCritic
 
 class PredictiveAgent:
     def __init__(self, 
@@ -35,18 +36,24 @@ class PredictiveAgent:
         self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = MLP((3, 64, 128, 128), normalize_input=True).to(self._device)
-        self._inverse_network = MLP((256, 128, 2), end_with_softmax=True).to(self._device)
-        self._feature_predictor = nn.Linear(130, 128).to(self._device)
+        self._feature_extractor = MLP(feature_extractor_layerwise_shape, normalize_input=True).to(self._device)
+        self._inverse_network = MLP(inverse_network_layerwise_shape, end_with_softmax=True).to(self._device)
+        self._feature_predictor = nn.Linear(hidden_state_size + self._action_space.n, feature_size).to(self._device)
         self._inner_state_predictor = nn.LSTM(
-            input_size=130,
-            hidden_size=128,
-            num_layers=2
+            input_size = self._action_space.n + feature_size,
+            hidden_size = hidden_state_size,
+            num_layers = predictor_RNN_num_layers
         ).to(self._device)
         self._controller = ControllerNetwork(
             self._action_space, 
             random_policy
             ).to(self._device)
+        self._controller_agent = ControllerAgent(
+            action_space=self._action_space,
+            random_policy=random_policy,
+            device=self._device,
+            gamma=0.99
+        )
 
         self._loss_ce = nn.CrossEntropyLoss()
         self._loss_mse = nn.MSELoss()
@@ -90,16 +97,17 @@ class PredictiveAgent:
                    extrinsic_reward: float,
                    extra: np.ndarray,
                    ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        # ICM
         observation = torch.from_numpy(observation).float().to(self._device).view(1, -1)
         feature, inverse_loss = self._update_and_get_icm(observation)
 
+        # Predictor
         predictor_loss = self._update_and_get_predictor(feature)
         intrinsic_reward = predictor_loss
         reward = extrinsic_reward + intrinsic_reward
 
-        policy_loss = 0.
-        value_loss = 0.
-        action, values = self._controller(self._inner_state, feature, extra, reward)
+        # Controller
+        action, policy_loss, value_loss = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device).view(1, -1)
 
         values = {
@@ -166,11 +174,49 @@ class PredictiveAgent:
             description)
 
 class ControllerAgent:
-    def __init__(self):
-        pass
+    def __init__(self,
+                 action_space, 
+                 random_policy: bool, 
+                 device: torch.device,
+                 gamma: float
+                 ):
+        self._action_space = action_space
+        self._random_policy = random_policy
+        self._device = device
+        self._actor_critic = DiscreteLinearActorCritic(
+            (128, 128, 64), 
+            action_space=action_space).to(self._device)
+        self._gamma = gamma
 
-    def get_action(self):
-        pass
+        self._loss_mse = nn.MSELoss()
+        self._prev_input = torch.zeros(1, 128).to(self._device)
+        self._log_prob = torch.tensor(0).to(self._device)
+        self._controller_optimizer = optim.Adam(self._actor_critic.parameters(), lr=0.001)
 
-    def update_parameters(self):
-        pass
+    def get_action_and_update(self, input: Tensor, reward: float) -> tuple[Tensor, float, float]:
+        if self._random_policy:
+            policy_loss = 0.
+            value_loss = 0.
+            random_action = self._action_space.sample()
+            action = torch.tensor(random_action, device=self._device)
+        else:
+            # Update
+            self._controller_optimizer.zero_grad()
+            policy, value = self._actor_critic(input)
+            _, prev_value = self._actor_critic(self._prev_input)
+            advantage = reward + self._gamma * value - prev_value
+            policy_loss_tensor = -advantage * self._log_prob
+            value_loss_tensor = self._loss_mse(reward + self._gamma * value, prev_value)
+            loss = policy_loss_tensor + 0.1 * value_loss_tensor
+            loss.backward()
+            self._controller_optimizer.step()
+            self._prev_input = input.detach()
+
+            policy_loss = policy_loss_tensor.item()
+            value_loss = value_loss_tensor.item()
+
+            # Get an action
+            distribution = Categorical(probs=policy)
+            action = distribution.sample()
+            self._log_prob = distribution.log_prob(action).detach()
+        return action, policy_loss, value_loss
