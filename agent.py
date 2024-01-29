@@ -1,12 +1,14 @@
+from itertools import chain
 import os
 from typing import Tuple, List, Dict, Any
 
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import nn, optim, Tensor
 from torch.nn import functional as F
 
-from model import FeatureExtractorInverseNetwork, PredictorNetwork, ControllerNetwork
+from model import ControllerNetwork
+from models import MLP
 
 class PredictiveAgent:
     def __init__(self, 
@@ -28,66 +30,77 @@ class PredictiveAgent:
 
         self._action_space = action_space
         self._path = path
-        self._prev_action = torch.zeros(self._action_space.n).to(self._device)
+        self._prev_observation = torch.zeros(1, observation_space.shape[0]).to(self._device)
+        self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
+        self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = FeatureExtractorInverseNetwork(
-            observation_space=observation_space,
-            action_space=self._action_space,
-            is_linear=True,
-            feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
-            inverse_network_layerwise_shape=inverse_network_layerwise_shape,
-            device=self._device
-        ).to(self._device)
-        self._predictor = PredictorNetwork(
-            action_space=self._action_space,
-            hidden_state_size=hidden_state_size,
-            feature_size=feature_size,
-            device=self._device,
-            num_layers=predictor_RNN_num_layers
+        self._feature_extractor = MLP((3, 64, 128, 128), normalize_input=True).to(self._device)
+        self._inverse_network = MLP((256, 128, 2), end_with_softmax=True).to(self._device)
+        self._feature_predictor = nn.Linear(130, 128).to(self._device)
+        self._inner_state_predictor = nn.LSTM(
+            input_size=130,
+            hidden_size=128,
+            num_layers=2
         ).to(self._device)
         self._controller = ControllerNetwork(
             self._action_space, 
             random_policy
             ).to(self._device)
 
-        self._feature_extractor_optimizer = optim.Adam(self._feature_extractor.parameters(), lr=feature_extractor_inverse_lr)
-        self._predictor_optimizer = optim.Adam(self._predictor.parameters(), lr=predictor_lr)
+        self._loss_ce = nn.CrossEntropyLoss()
+        self._loss_mse = nn.MSELoss()
+
+        icm = chain(self._feature_extractor.parameters(), self._inverse_network.parameters())
+        predictor = chain(self._feature_predictor.parameters(), self._inner_state_predictor.parameters())
+        self._feature_extractor_optimizer = optim.Adam(icm, lr=feature_extractor_inverse_lr)
+        self._predictor_optimizer = optim.Adam(predictor, lr=predictor_lr)
+
+    def _update_and_get_icm(self, observation: Tensor) -> tuple[Tensor, float]:
+        self._feature_extractor_optimizer.zero_grad()
+        prev_feature = self._feature_extractor(self._prev_observation)
+        feature = self._feature_extractor(observation)
+        concatenated_feature = torch.cat((prev_feature, feature), 1)
+        pred_prev_action = self._inverse_network(concatenated_feature)
+        inverse_loss = self._loss_ce(self._prev_action, pred_prev_action)
+        inverse_loss.backward()
+        self._feature_extractor_optimizer.step()
+        self._prev_observation = observation
+        return feature, inverse_loss.item()
+
+    def _update_and_get_predictor(self, feature: Tensor) -> float:
+        self._predictor_optimizer.zero_grad()
+        feature = feature.detach()
+        inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
+        pred_feature = self._feature_predictor(inner_state_action)
+        action_feature = torch.cat((self._prev_action, feature), 1)
+        inner_state, _ = self._inner_state_predictor(action_feature)
+        predictor_loss = self._loss_mse(feature, pred_feature)
+        predictor_loss.backward()
+        self._predictor_optimizer.step()
+        self._inner_state = inner_state.detach()
+        
+        return predictor_loss.item()
+
+    def _update_and_get_controller():
+        pass
 
     def get_action(self, 
                    observation: np.ndarray, 
                    extrinsic_reward: float,
                    extra: np.ndarray,
                    ) -> Tuple[np.ndarray, Dict[str, Any]]:
-        observation = torch.from_numpy(observation).float().to(self._device)
-        loss_ce = nn.CrossEntropyLoss()
-        loss_mse = nn.MSELoss()
+        observation = torch.from_numpy(observation).float().to(self._device).view(1, -1)
+        feature, inverse_loss = self._update_and_get_icm(observation)
 
-        # Feed and update the feature extractor inverse network
-        self._feature_extractor_optimizer.zero_grad()
-        feature, pred_prev_action = self._feature_extractor(observation)
-        inverse_loss = loss_ce(self._prev_action, pred_prev_action)
-        inverse_loss.backward()
-        self._feature_extractor_optimizer.step()
-
-        # Feed and update the predictor network
-        self._predictor_optimizer.zero_grad()
-        feature = feature.detach()
-        self._prev_action = self._prev_action.detach()
-        hidden_state, pred_feature = self._predictor(feature, self._prev_action)
-        predictor_loss = loss_mse(feature, pred_feature)
-        predictor_loss.backward()
-        self._predictor_optimizer.step()
-        self._predictor.set_hidden_state(hidden_state.detach())
-
+        predictor_loss = self._update_and_get_predictor(feature)
         intrinsic_reward = predictor_loss
         reward = extrinsic_reward + intrinsic_reward
 
-        # Get a action and update the controller network
         policy_loss = 0.
         value_loss = 0.
-        action, values = self._controller(hidden_state, feature, extra, reward)
-        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
+        action, values = self._controller(self._inner_state, feature, extra, reward)
+        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device).view(1, -1)
 
         values = {
             'loss/inverse_loss': inverse_loss,
@@ -151,3 +164,13 @@ class PredictiveAgent:
             self._controller.state_dict(),
             'controller-network',
             description)
+
+class ControllerAgent:
+    def __init__(self):
+        pass
+
+    def get_action(self):
+        pass
+
+    def update_parameters(self):
+        pass
