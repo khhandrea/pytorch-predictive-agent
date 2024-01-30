@@ -1,6 +1,6 @@
 from itertools import chain
 import os
-from typing import Tuple, List, Dict, Any
+from typing import Any
 
 import numpy as np
 import torch
@@ -18,12 +18,13 @@ class PredictiveAgent:
                  random_policy: bool,
                  path: str,
                  device: str,
-                 lr_args: Tuple[float, float, float],
+                 lr_args: tuple[float, float, float],
                  hidden_state_size: int,
                  feature_size: int,
                  predictor_RNN_num_layers: int,
-                 feature_extractor_layerwise_shape: List,
-                 inverse_network_layerwise_shape: List):
+                 feature_extractor_layerwise_shape: tuple,
+                 inverse_network_layerwise_shape: tuple,
+                 controller_network_layerwise_shape: tuple):
         if device != 'cpu':
             assert torch.cuda.is_available()
         self._device = torch.device(device)
@@ -52,7 +53,10 @@ class PredictiveAgent:
             action_space=self._action_space,
             random_policy=random_policy,
             device=self._device,
-            gamma=0.99
+            gamma=0.99,
+            controller_lr=controller_lr,
+            feature_size=feature_size,
+            controller_network_layerwise_shape=controller_network_layerwise_shape
         )
 
         self._loss_ce = nn.CrossEntropyLoss()
@@ -96,7 +100,7 @@ class PredictiveAgent:
                    observation: np.ndarray, 
                    extrinsic_reward: float,
                    extra: np.ndarray,
-                   ) -> Tuple[np.ndarray, Dict[str, Any]]:
+                   ) -> tuple[np.ndarray, dict[str, Any]]:
         # ICM
         observation = torch.from_numpy(observation).float().to(self._device).view(1, -1)
         feature, inverse_loss = self._update_and_get_icm(observation)
@@ -124,7 +128,7 @@ class PredictiveAgent:
         environment, description, step = load_arg.split('/')
         return os.path.join('checkpoints', environment, description, network, f'step-{step}') + '.pt'
 
-    def load(self, load_args: Tuple[str, str, str, str]):
+    def load(self, load_args: tuple[str, str, str, str]):
         load, load_inverse, load_predictor, load_controller = load_args
 
         # Load models from one directory
@@ -178,20 +182,23 @@ class ControllerAgent:
                  action_space, 
                  random_policy: bool, 
                  device: torch.device,
-                 gamma: float
+                 gamma: float,
+                 controller_lr: float,
+                 feature_size: int,
+                 controller_network_layerwise_shape: tuple[int, ...]
                  ):
         self._action_space = action_space
         self._random_policy = random_policy
         self._device = device
         self._actor_critic = DiscreteLinearActorCritic(
-            (128, 128, 64), 
+            controller_network_layerwise_shape, 
             action_space=action_space).to(self._device)
         self._gamma = gamma
 
         self._loss_mse = nn.MSELoss()
-        self._prev_input = torch.zeros(1, 128).to(self._device)
+        self._prev_input = torch.zeros(1, feature_size).to(self._device)
         self._log_prob = torch.tensor(0).to(self._device)
-        self._controller_optimizer = optim.Adam(self._actor_critic.parameters(), lr=0.001)
+        self._controller_optimizer = optim.Adam(self._actor_critic.parameters(), lr=controller_lr)
 
     def get_action_and_update(self, input: Tensor, reward: float) -> tuple[Tensor, float, float]:
         if self._random_policy:

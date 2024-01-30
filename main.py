@@ -31,6 +31,7 @@ if __name__ == '__main__':
         controller_lr)
     feature_extractor_layerwise_shape = tuple(config['feature_extractor_layerwise_shape'])
     inverse_network_layerwise_shape = tuple(config['inverse_network_layerwise_shape'])
+    controller_network_layerwise_shape = tuple(config['controller_network_layerwise_shape'])
     
     # Experiment
     env = LinearSpectrumEnvironment(
@@ -52,6 +53,7 @@ if __name__ == '__main__':
         feature_size=config['feature_size'],
         predictor_RNN_num_layers=config['predictor_RNN_num_layers'],
         feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
-        inverse_network_layerwise_shape=inverse_network_layerwise_shape
+        inverse_network_layerwise_shape=inverse_network_layerwise_shape,
+        controller_network_layerwise_shape=controller_network_layerwise_shape
         )
     trainer.train()

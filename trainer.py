@@ -1,11 +1,9 @@
 from datetime import timedelta
 from time import time
-from typing import Tuple, List
 from datetime import datetime
 
 from gymnasium.utils.env_checker import check_env
 from gymnasium import Env
-import torch
 
 from agent import PredictiveAgent
 from utils import LogWriter
@@ -19,14 +17,15 @@ class Trainer:
             progress_interval: int,
             save_interval: int,
             skip_save: bool,
-            load_args: Tuple[str, str, str, str],
+            load_args: tuple[str, str, str, str],
             device: str,
-            lr_args: Tuple[float, float, float],
+            lr_args: tuple[float, float, float],
             hidden_state_size: int,
             feature_size: int,
             predictor_RNN_num_layers: int,
-            feature_extractor_layerwise_shape: List,
-            inverse_network_layerwise_shape: List):
+            feature_extractor_layerwise_shape: tuple[int, ...],
+            inverse_network_layerwise_shape: tuple[int, ...],
+            controller_network_layerwise_shape: tuple[int, ...]):
         self._env = env
         check_env(self._env, skip_render_check=True)
 
@@ -46,7 +45,8 @@ class Trainer:
             feature_size=feature_size,
             predictor_RNN_num_layers=predictor_RNN_num_layers,
             feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
-            inverse_network_layerwise_shape=inverse_network_layerwise_shape)
+            inverse_network_layerwise_shape=inverse_network_layerwise_shape,
+            controller_network_layerwise_shape=controller_network_layerwise_shape)
         self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,
