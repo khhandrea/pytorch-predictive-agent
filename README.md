@@ -23,10 +23,10 @@
 
   - Others
   - Fine tuning
-  - Name to predictive-agent
+  V Name to predictive-agent
   - Makefile setting
     - ref. https://kimjingo.tistory.com/203
-  - LSTM
+  - LSTM to icm
   - parallel modules
   - Best checkpoint
   - Rethinking loss at once
