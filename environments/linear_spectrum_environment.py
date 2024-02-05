@@ -1,5 +1,5 @@
 from colorsys import hsv_to_rgb
-from typing import Tuple, Dict, Any
+from typing import Any
 
 import gymnasium as gym
 from gymnasium import spaces
@@ -13,7 +13,7 @@ class LinearSpectrumEnvironment(gym.Env):
         }
     
     def __init__(self, render_mode:str, agent_speed: int=5, step_max: int=1000):
-        self.step_max = step_max
+        self._step_max = step_max
         self._agent_speed = agent_speed
 
         self.action_space = spaces.Discrete(2)
@@ -31,7 +31,7 @@ class LinearSpectrumEnvironment(gym.Env):
             self, 
             seed=None, 
             options=None
-            ) -> Tuple[np.ndarray, Dict[str, Any]]:
+            ) -> tuple[np.ndarray, dict[str, Any]]:
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
@@ -49,18 +49,18 @@ class LinearSpectrumEnvironment(gym.Env):
     def step(
             self, 
             action: np.ndarray
-            ) -> Tuple[np.ndarray, float, bool, bool, Dict[str, Any]]:
+            ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         action = action.item() 
         # 0: left, 1: right
         assert (action == 0) or (action == 1)
 
-        # take a step
+        # Take a step
         if action == 0:
-            if self.state - self._agent_speed > 0:
-                self.state -= self._agent_speed
+            self.state -= self._agent_speed
         elif action == 1:
-            if self.state + self._agent_speed < 255:
-                self.state += self._agent_speed
+            self.state += self._agent_speed
+
+        self.state = max(0, min(self.state - self._agent_speed, 255))
 
         observation = self._get_observation()
         reward = 0
@@ -71,7 +71,7 @@ class LinearSpectrumEnvironment(gym.Env):
         # Check truncated
         truncated = False
         self._step += 1
-        if self._step == self.step_max:
+        if self._step == self._step_max:
             truncated = True
 
         info = self._get_info()
@@ -155,9 +155,9 @@ class LinearSpectrumEnvironment(gym.Env):
         observation = observation.astype(np.uint8)
         return observation
     
-    def _get_info(self) -> Dict[str, Any]:
+    def _get_info(self) -> dict[str, Any]:
         info = {
             'Environment.name': 'LinearSpectrumEnvironment',
-            'TimeLimit.truncated': self.step_max,
+            'TimeLimit.truncated': self._step_max,
         }
         return info
