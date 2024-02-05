@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from yaml import full_load
 
-from environments import LinearSpectrumEnvironment
+from environments import LinearSpectrumEnvironment, MovingImageEnvironment
 from trainer import Trainer
 
 if __name__ == '__main__':
@@ -35,6 +35,7 @@ if __name__ == '__main__':
     
     # Experiment
     env = LinearSpectrumEnvironment(
+    # env = MovingImageEnvironment(
         render_mode=render_mode,
         agent_speed=config['agent_speed'],
         step_max=config['step_max'])

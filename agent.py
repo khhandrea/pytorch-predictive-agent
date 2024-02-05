@@ -8,7 +8,7 @@ from torch import nn, optim, Tensor
 from torch.nn import functional as F
 
 from controller_agent import ControllerAgent
-from models import MLP
+from models import MLP, SimpleCNN
 
 class PredictiveAgent:
     def __init__(self, 
@@ -30,13 +30,15 @@ class PredictiveAgent:
         print(f"device: {self._device}")
 
         self._action_space = action_space
+        self._observation_space = observation_space
         self._path = path
-        self._prev_observation = torch.zeros(1, observation_space.shape[0]).to(self._device)
+        self._prev_observation = torch.zeros(1, 3).to(self._device)
         self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
         self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = MLP(feature_extractor_layerwise_shape, normalize_input=True).to(self._device)
+        self._feature_extractor = MLP(feature_extractor_layerwise_shape).to(self._device)
+        # self._feature_extractor = SimpleCNN().to(self._device)
         self._inverse_network = MLP(inverse_network_layerwise_shape, end_with_softmax=True).to(self._device)
         self._feature_predictor = nn.Linear(hidden_state_size + self._action_space.n, feature_size).to(self._device)
         self._inner_state_predictor = nn.LSTM(
@@ -68,7 +70,7 @@ class PredictiveAgent:
         feature = self._feature_extractor(observation)
         concatenated_feature = torch.cat((prev_feature, feature), 1)
         pred_prev_action = self._inverse_network(concatenated_feature)
-        inverse_loss = self._loss_ce(self._prev_action, pred_prev_action)
+        inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
         inverse_loss.backward()
         self._feature_extractor_optimizer.step()
         self._prev_observation = observation
@@ -96,8 +98,9 @@ class PredictiveAgent:
                    extrinsic_reward: float,
                    extra: np.ndarray,
                    ) -> tuple[np.ndarray, dict[str, Any]]:
-        # ICM
-        observation = torch.from_numpy(observation).float().to(self._device).view(1, -1)
+        # ICM after Normalize
+        observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
+        observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
         feature, inverse_loss = self._update_and_get_icm(observation)
 
         # Predictor
@@ -107,7 +110,7 @@ class PredictiveAgent:
 
         # Controller
         action, policy_loss, value_loss = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
-        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device).view(1, -1)
+        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
             'loss/inverse_loss': inverse_loss,

@@ -5,7 +5,6 @@ class MLP(nn.Module):
     def __init__(self, 
                  layerwise_shape: tuple[int, ...],
                  activation: nn.Module = nn.ReLU,
-                 normalize_input: bool = False,
                  end_with_softmax: bool = False):
         """
         Args:
@@ -33,10 +32,7 @@ class MLP(nn.Module):
                 f"layer{len(layerwise_shape) - 1}-softmax",
                 nn.Softmax(dim=1)
             )
-        self._normalize_input = normalize_input
 
     def forward(self, input: Tensor) -> Tensor:
-        if self._normalize_input:
-            input = normalize(input, dim=0)
         output = self._model(input)
         return output

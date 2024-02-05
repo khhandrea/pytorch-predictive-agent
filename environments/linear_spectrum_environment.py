@@ -12,7 +12,7 @@ class LinearSpectrumEnvironment(gym.Env):
         'render_fps': 15,
         }
     
-    def __init__(self, render_mode:str, agent_speed: int=5, step_max: int=1000):
+    def __init__(self, render_mode:str, agent_speed: int, step_max: int):
         self._step_max = step_max
         self._agent_speed = agent_speed
 

@@ -29,7 +29,6 @@ class SimpleCNN(nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         assert x.shape[1:] == (3, 64, 64)
         x = self._cnns(x)
-        print(x.shape)
         x = x.view(-1, 128 * 4 * 4)
         x = self._fc(x)
         return x

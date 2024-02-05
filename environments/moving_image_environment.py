@@ -12,13 +12,13 @@ class MovingImageEnvironment(gym.Env):
         'render_fps': 15
     }
 
-    def __init__(self, render_mode: str):
+    def __init__(self, render_mode: str, agent_speed: int, step_max: int):
         self._image = Image.open('sources/animals.png')
         self._coordinate = [0, 0] # x, y
         self._observation_size = (3, 64, 64)
-        self._agent_speed = 10
+        self._agent_speed = agent_speed
         self._step = 0
-        self._step_max = 1000
+        self._step_max = step_max
 
         self.action_space = spaces.Discrete(4)
         self.observation_space = spaces.Box(low=0, high=255, shape=(3, 64, 64), dtype=np.uint8)
