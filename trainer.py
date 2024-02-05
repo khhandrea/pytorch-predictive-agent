@@ -85,7 +85,6 @@ class Trainer:
             observation, extrinsic_reward, terminated, truncated, info = self._env.step(action)
 
             values['reward/extrinsic_reward'] = extrinsic_reward
-            values['policy/state'] = self._env.state
             values['policy/state'] = 0
             self._log_writer.write(values, step)
             sum_inverse += values['loss/inverse_loss']

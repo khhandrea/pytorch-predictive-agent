@@ -32,7 +32,7 @@ class ControllerAgent:
             policy_loss = 0.
             value_loss = 0.
             random_action = self._action_space.sample()
-            action = torch.tensor(random_action, device=self._device)
+            action = torch.tensor(random_action, device=self._device).unsqueeze(0)
         else:
             # Update
             self._controller_optimizer.zero_grad()

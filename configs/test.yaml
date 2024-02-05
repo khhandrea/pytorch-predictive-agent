@@ -47,5 +47,5 @@ hidden_state_size: 128
 feature_size: 128
 predictor_RNN_num_layers: 2
 feature_extractor_layerwise_shape: [3, 64, 128]
-inverse_network_layerwise_shape: [256, 128, 2]
+inverse_network_layerwise_shape: [256, 128, 4]
 controller_network_layerwise_shape: [128, 128, 64]

@@ -9,7 +9,7 @@ import pygame
 class MovingImageEnvironment(gym.Env):
     metadata = {
         'render_modes': ['none', 'human'],
-        'render_fps': 15
+        'render_fps': 30
     }
 
     def __init__(self, render_mode: str, agent_speed: int, step_max: int):
@@ -101,12 +101,18 @@ class MovingImageEnvironment(gym.Env):
 
         canvas.fill((0, 0, 0))
 
-        image = np.transpose(self._get_observation(), (1, 2, 0))
+        observation = self._get_observation()
+        image = np.transpose(observation, (1, 2, 0))
         pygame_surface = pygame.surfarray.make_surface(image)
 
-        self._window.blit(pygame_surface, (0, 0))
+        if self._render_mode == 'human':
+            self._window.blit(pygame_surface, (0, 0))
+            pygame.event.pump()
+            pygame.display.update()
 
-        pygame.display.flip()
+            self._clock.tick(self.metadata['render_fps'])
+
+        # pygame.display.flip()
 
     def close(self):
         if self._window is not None:

@@ -32,13 +32,12 @@ class PredictiveAgent:
         self._action_space = action_space
         self._observation_space = observation_space
         self._path = path
-        self._prev_observation = torch.zeros(1, 3).to(self._device)
+        self._prev_observation = torch.zeros(1, 3, 64, 64).to(self._device)
         self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
         self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = MLP(feature_extractor_layerwise_shape).to(self._device)
-        # self._feature_extractor = SimpleCNN().to(self._device)
+        self._feature_extractor = SimpleCNN().to(self._device)
         self._inverse_network = MLP(inverse_network_layerwise_shape, end_with_softmax=True).to(self._device)
         self._feature_predictor = nn.Linear(hidden_state_size + self._action_space.n, feature_size).to(self._device)
         self._inner_state_predictor = nn.LSTM(
