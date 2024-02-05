@@ -72,7 +72,6 @@ class Trainer:
             
     def train(self):
         observation, info = self._env.reset()
-        extrinsic_reward = 0
         terminated = truncated = False
         
         self._print_progress(first=True)
@@ -102,12 +101,13 @@ class Trainer:
                     sum_policy / self._progress_interval,
                     sum_value / self._progress_interval)
                 sum_inverse = sum_pred = sum_policy = sum_value = 0.
-            step += 1
 
             # Save the model periodically
             if step % self._save_interval == 0:
                 if not self._skip_save:
                     self._agent.save(f'step-{step}')
+                    
+            step += 1
         formatted_time = str(timedelta(seconds = time() - start_time)).split('.')[0]
         print(f"{'terminated' if terminated else 'truncated'} at step {step - 1} after {formatted_time}")
 

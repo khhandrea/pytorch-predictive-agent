@@ -1,5 +1,3 @@
-from typing import Tuple
-
 from torch import nn, Tensor
 from torch.nn.functional import normalize
 
