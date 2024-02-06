@@ -2,37 +2,29 @@ from torch import nn, Tensor
 
 class DiscreteLinearActorCritic(nn.Module):
     def __init__(self,
-                 layerwise_shape: tuple[int, ...],
+                 input_size: int,
                  action_space,
                  activation: nn.Module = nn.ReLU):
         super().__init__()
         self._action_size = action_space.n
-        self._shared = nn.Sequential()
-        for idx in range(1, len(layerwise_shape) -1 ):
-            self._shared.add_module(
-                f"layer{idx - 1}-linear",
-                nn.Linear(layerwise_shape[idx - 1], layerwise_shape[idx])
-            )
-            self._shared.add_module(
-                f"layer{idx-1}-activation",
-                activation()
-            )            
-        self._shared.add_module(
-            f"layer{len(layerwise_shape) - 1}-linear",
-            nn.Linear(layerwise_shape[-2], layerwise_shape[-1])
+        self._shared = nn.Sequential(
+            nn.Linear(input_size, 128),
+            activation(),
+            nn.Linear(128, 64),
+            activation()
         )
 
         self._actor = nn.Sequential(
-            nn.Linear(layerwise_shape[-1], layerwise_shape[-1]),
+            nn.Linear(64, 64),
             activation(),
-            nn.Linear(layerwise_shape[-1], self._action_size),
+            nn.Linear(64, self._action_size),
             nn.Softmax(dim=1)
         )
 
         self._critic = nn.Sequential(
-            nn.Linear(layerwise_shape[-1], layerwise_shape[-1]),
+            nn.Linear(64, 64),
             activation(),
-            nn.Linear(layerwise_shape[-1], 1)
+            nn.Linear(64, 1)
         )
 
     def forward(self, input: Tensor) -> Tensor:

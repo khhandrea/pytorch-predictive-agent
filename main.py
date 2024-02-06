@@ -29,15 +29,14 @@ if __name__ == '__main__':
         feature_extractor_inverse_lr, 
         predictor_lr, 
         controller_lr)
-    feature_extractor_layerwise_shape = tuple(config['feature_extractor_layerwise_shape'])
-    inverse_network_layerwise_shape = tuple(config['inverse_network_layerwise_shape'])
-    controller_network_layerwise_shape = tuple(config['controller_network_layerwise_shape'])
     
     # Experiment
     env = MovingImageEnvironment(
         render_mode=render_mode,
         agent_speed=config['agent_speed'],
-        step_max=config['step_max'])
+        step_max=config['step_max'],
+        noise_scale=config['noise_scale'],
+        )
     trainer = Trainer(
         env,
         random_policy=config['random_policy'],
@@ -49,11 +48,9 @@ if __name__ == '__main__':
         load_args=load_args,
         device=config['device'],
         lr_args=lr_args,
+        policy_discount=config['policy_discount'],
+        gamma=config['gamma'],
         hidden_state_size=config['hidden_state_size'],
         feature_size=config['feature_size'],
-        predictor_RNN_num_layers=config['predictor_RNN_num_layers'],
-        feature_extractor_layerwise_shape=feature_extractor_layerwise_shape,
-        inverse_network_layerwise_shape=inverse_network_layerwise_shape,
-        controller_network_layerwise_shape=controller_network_layerwise_shape
         )
     trainer.train()

@@ -5,25 +5,25 @@
   v average loss
   v Save
   v Load
-  V GPU
-  V pygame
-  V Load each
-  V PredictorNetwork
-  V Overfitting
+  v GPU
+  v pygame
+  v Load each
+  v PredictorNetwork
+  v Overfitting
   
   - Jan 3rd
-  V ControllerNetwork
+  v ControllerNetwork
   - CircularEnvironment
 
   - Jan 4th
-  - Read deepmind-lab
-  - ComplexEnvironment
-  - 2d FeatureExtractorInverseNetwork
+  v Read deepmind-lab
+  v ComplexEnvironment
+  v 2d FeatureExtractorInverseNetwork
   - Continuous action
 
   - Others
-  - Fine tuning
-  V Name to predictive-agent
+  v Fine tuning
+  v Name to predictive-agent
   - Makefile setting
     - ref. https://kimjingo.tistory.com/203
   - LSTM to icm

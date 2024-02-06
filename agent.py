@@ -8,7 +8,7 @@ from torch import nn, optim, Tensor
 from torch.nn import functional as F
 
 from controller_agent import ControllerAgent
-from models import MLP, SimpleCNN
+from models import SimpleCNN, MLP
 
 class PredictiveAgent:
     def __init__(self, 
@@ -18,12 +18,11 @@ class PredictiveAgent:
                  path: str,
                  device: str,
                  lr_args: tuple[float, float, float],
+                 gamma: float,
                  hidden_state_size: int,
                  feature_size: int,
-                 predictor_RNN_num_layers: int,
-                 feature_extractor_layerwise_shape: tuple,
-                 inverse_network_layerwise_shape: tuple,
-                 controller_network_layerwise_shape: tuple):
+                 policy_discount: float,
+                 ):
         if device != 'cpu':
             assert torch.cuda.is_available()
         self._device = torch.device(device)
@@ -32,28 +31,34 @@ class PredictiveAgent:
         self._action_space = action_space
         self._observation_space = observation_space
         self._path = path
-        self._prev_observation = torch.zeros(1, 3, 64, 64).to(self._device)
+        observation_shape = tuple([1] + list(self._observation_space.shape))
+        self._prev_observation = torch.zeros(observation_shape).to(self._device)
         self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
         self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = SimpleCNN().to(self._device)
-        self._inverse_network = MLP(inverse_network_layerwise_shape, end_with_softmax=True).to(self._device)
-        self._feature_predictor = nn.Linear(hidden_state_size + self._action_space.n, feature_size).to(self._device)
+        self._feature_extractor = SimpleCNN(feature_size).to(self._device)
+        self._inverse_network = MLP(
+            (feature_size * 2, feature_size, self._action_space.n),
+            end_with_softmax = True
+            ).to(self._device)
+        self._feature_predictor = nn.Linear(
+            hidden_state_size + self._action_space.n, feature_size
+            ).to(self._device)
         self._inner_state_predictor = nn.LSTM(
             input_size = self._action_space.n + feature_size,
             hidden_size = hidden_state_size,
-            num_layers = predictor_RNN_num_layers
-        ).to(self._device)
+            num_layers = 2
+            ).to(self._device)
         self._controller_agent = ControllerAgent(
+            feature_size=feature_size,
             action_space=self._action_space,
             random_policy=random_policy,
-            device=self._device,
-            gamma=0.99,
+            gamma=gamma,
             controller_lr=controller_lr,
-            feature_size=feature_size,
-            controller_network_layerwise_shape=controller_network_layerwise_shape
-        )
+            policy_discount=policy_discount,
+            device=self._device,
+            )
 
         self._loss_ce = nn.CrossEntropyLoss()
         self._loss_mse = nn.MSELoss()
@@ -63,7 +68,7 @@ class PredictiveAgent:
         self._feature_extractor_optimizer = optim.Adam(icm, lr=feature_extractor_inverse_lr)
         self._predictor_optimizer = optim.Adam(predictor, lr=predictor_lr)
 
-    def _update_and_get_icm(self, observation: Tensor) -> tuple[Tensor, float]:
+    def _update_and_get_icm(self, observation: Tensor) -> tuple[Tensor, float, bool]:
         self._feature_extractor_optimizer.zero_grad()
         prev_feature = self._feature_extractor(self._prev_observation)
         feature = self._feature_extractor(observation)
@@ -73,7 +78,8 @@ class PredictiveAgent:
         inverse_loss.backward()
         self._feature_extractor_optimizer.step()
         self._prev_observation = observation
-        return feature, inverse_loss.item()
+        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
+        return feature, inverse_loss.item(), correct
 
     def _update_and_get_predictor(self, feature: Tensor) -> float:
         self._predictor_optimizer.zero_grad()
@@ -95,12 +101,11 @@ class PredictiveAgent:
     def get_action(self, 
                    observation: np.ndarray, 
                    extrinsic_reward: float,
-                   extra: np.ndarray,
-                   ) -> tuple[np.ndarray, dict[str, Any]]:
+                   ) -> tuple[np.ndarray, dict[str, Any], bool]:
         # ICM after Normalize
         observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
         observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
-        feature, inverse_loss = self._update_and_get_icm(observation)
+        feature, inverse_loss, correct = self._update_and_get_icm(observation)
 
         # Predictor
         predictor_loss = self._update_and_get_predictor(feature)
@@ -108,18 +113,19 @@ class PredictiveAgent:
         reward = extrinsic_reward + intrinsic_reward
 
         # Controller
-        action, policy_loss, value_loss = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
+        action, policy_loss, value_loss, entropy = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
-            'loss/inverse_loss': inverse_loss,
-            'loss/predictor_loss': predictor_loss,
-            'loss/policy_loss': policy_loss,
-            'loss/value_loss': value_loss,
+            'icm/inverse_loss': inverse_loss,
+            'icm/predictor_loss': predictor_loss,
+            'controller/policy_loss': policy_loss,
+            'controller/value_loss': value_loss,
+            'controller/entropy': entropy,
             'reward/intrinsic_reward': intrinsic_reward
         }
 
-        return action, values
+        return action, values, correct
 
     def _get_load_path(self, load_arg: str, network: str) -> str:
         environment, description, step = load_arg.split('/')
