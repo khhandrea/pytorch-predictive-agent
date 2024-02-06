@@ -18,7 +18,9 @@ class ControllerAgent:
         self._random_policy = random_policy
         self._device = device
         self._actor_critic = DiscreteLinearActorCritic(
-            feature_size, action_space).to(self._device)
+            feature_size,
+            action_space.n,
+            ).to(self._device)
         self._gamma = gamma
         self._policy_discount = policy_discount
 

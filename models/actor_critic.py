@@ -3,10 +3,9 @@ from torch import nn, Tensor
 class DiscreteLinearActorCritic(nn.Module):
     def __init__(self,
                  input_size: int,
-                 action_space,
+                 action_size: int,
                  activation: nn.Module = nn.ReLU):
         super().__init__()
-        self._action_size = action_space.n
         self._shared = nn.Sequential(
             nn.Linear(input_size, 128),
             activation(),
@@ -17,7 +16,7 @@ class DiscreteLinearActorCritic(nn.Module):
         self._actor = nn.Sequential(
             nn.Linear(64, 64),
             activation(),
-            nn.Linear(64, self._action_size),
+            nn.Linear(64, action_size),
             nn.Softmax(dim=1)
         )
 
@@ -27,8 +26,24 @@ class DiscreteLinearActorCritic(nn.Module):
             nn.Linear(64, 1)
         )
 
-    def forward(self, input: Tensor) -> Tensor:
-        z = self._shared(input)
-        policy = self._actor(z)
-        value = self._critic(z)
+    def forward(self, x: Tensor) -> Tensor:
+        x = self._shared(x)
+        policy = self._actor(x)
+        value = self._critic(x)
+        return policy, value
+    
+class LSTMActorCritic(nn.Module):
+    def __init__(self,
+                 input_size: int,
+                 action_size: int,
+                 activation: nn.Module = nn.ReLU):
+        super().__init__()
+        self._shared = nn.Sequential()
+        self._actor = nn.Sequential()
+        self._critic = nn.Sequential()
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self._shared
+        policy = self._actor(x)
+        value = self._critic(x)
         return policy, value
