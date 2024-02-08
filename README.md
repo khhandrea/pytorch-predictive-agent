@@ -1,29 +1,34 @@
 # Python-predict-agent
 
 ## TODO
-  v 1d feature, discrete action FeatureExtractorInverseNetwork
-  v average loss
-  v Save
-  v Load
-  v GPU
-  v pygame
-  v Load each
-  v PredictorNetwork
-  v Overfitting
-  
-  - Jan 3rd
-  v ControllerNetwork
+- Jan 2nd
+  - v 1d feature, discrete action FeatureExtractorInverseNetwork
+  - v average loss
+  - v Save
+  - v Load
+  - v GPU
+  - v pygame
+  - v Load each
+  - v PredictorNetwork
+  - v Overfitting
+
+- Jan 3rd
+  - v ControllerNetwork
   - CircularEnvironment
 
-  - Jan 4th
-  v Read deepmind-lab
-  v ComplexEnvironment
-  v 2d FeatureExtractorInverseNetwork
+- Jan 4th
+  - v Read deepmind-lab
+  - v ComplexEnvironment
+  - v 2d FeatureExtractorInverseNetwork
   - Continuous action
 
-  - Others
-  v Fine tuning
-  v Name to predictive-agent
+- Feb 1st
+  - Make inverse network module
+  - Network configuration
+
+- Others
+  - v Fine tuning
+  - v Name to predictive-agent
   - Makefile setting
     - ref. https://kimjingo.tistory.com/203
   - LSTM to icm
