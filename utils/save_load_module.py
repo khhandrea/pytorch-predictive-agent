@@ -16,4 +16,5 @@ def makedir_and_save_module(state_dict,
 
 def get_load_path(load_arg: str, network: str) -> str:
     environment, description, step = load_arg.split('/')
-    return os.path.join('checkpoints', environment, description, network, f'step-{step}') + '.pt'
+    path = os.path.join('checkpoints', environment, description, network, f'step-{step}') + '.pt'
+    return path

@@ -6,9 +6,9 @@ class DefaultLSTMInnerStatePredictor(nn.Module):
         self._model = nn.LSTM(
             input_size = 4 + 256,
             hidden_size = 256,
-            num_layers = 2
+            num_layers = 1
         )
 
-    def forward(self, input: Tensor) -> Tensor:
-        inner_state, _ = self._model(input)
+    def forward(self, x: Tensor) -> Tensor:
+        inner_state, _ = self._model(x)
         return inner_state

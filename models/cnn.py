@@ -31,9 +31,9 @@ class DefaultCNNFeatureExtractor(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, input: Tensor) -> Tensor:
-        assert input.shape[1:] == (3, 64, 64)
-        z = self._cnns(input)
-        z = z.view(-1, 128 * 4 * 4)
-        result = self._fc(z)
-        return result
+    def forward(self, x: Tensor) -> Tensor:
+        assert x.shape[1:] == (3, 64, 64)
+        x = self._cnns(x)
+        x = x.view(-1, 128 * 4 * 4)
+        x = self._fc(x)
+        return x

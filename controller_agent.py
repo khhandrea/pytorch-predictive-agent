@@ -2,7 +2,7 @@ import torch
 from torch.distributions.categorical import Categorical
 from torch import nn, optim, Tensor
 
-from utils import get_class_from_module, makedir_and_save_module
+from utils import get_class_from_module, makedir_and_save_module, get_load_path
 
 class ControllerAgent:
     def __init__(self,
@@ -63,9 +63,9 @@ class ControllerAgent:
         makedir_and_save_module(
             self._controller.state_dict(),
             self._path,
-            'conntroller-network',
+            'controller-network',
             description)
         
     def load(self, path: str):
         self._controller.load_state_dict(
-            torch.load(self._get_load_path(path, 'controller-network')))
+            torch.load(get_load_path(path, 'controller-network')))

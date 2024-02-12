@@ -34,6 +34,7 @@ class Trainer:
 
         formatted_time = datetime.now().strftime('%y%m%dT%H%M%S')
         path = f'{self._env.__class__.__name__}/{formatted_time}_{description}'
+        print(f"path: {path}")
         self._agent = PredictiveAgent(
             observation_space=self._env.observation_space,
             action_space=self._env.action_space, 

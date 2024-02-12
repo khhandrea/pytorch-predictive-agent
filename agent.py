@@ -65,7 +65,13 @@ class PredictiveAgent:
         self._feature_extractor_optimizer = optim.Adam(icm, lr=feature_extractor_inverse_lr)
         self._predictor_optimizer = optim.Adam(predictor, lr=predictor_lr)
 
-    def _update_and_get_icm(self, observation: Tensor) -> tuple[Tensor, float, bool]:
+    def get_action(self, 
+                   observation: np.ndarray, 
+                   extrinsic_reward: float,
+                   ) -> tuple[np.ndarray, dict[str, Any], bool]:
+        # ICM after Normalize
+        observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
+        observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
         self._feature_extractor_optimizer.zero_grad()
         prev_feature = self._feature_extractor(self._prev_observation)
         feature = self._feature_extractor(observation)
@@ -76,9 +82,9 @@ class PredictiveAgent:
         self._feature_extractor_optimizer.step()
         self._prev_observation = observation
         correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
-        return feature, inverse_loss.item(), correct
+        inverse_loss = inverse_loss.item()
 
-    def _update_and_get_predictor(self, feature: Tensor) -> float:
+        # Predictor
         self._predictor_optimizer.zero_grad()
         feature = feature.detach()
         inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
@@ -89,23 +95,7 @@ class PredictiveAgent:
         predictor_loss.backward()
         self._predictor_optimizer.step()
         self._inner_state = inner_state.detach()
-        
-        return predictor_loss.item()
-
-    def _update_and_get_controller():
-        pass
-
-    def get_action(self, 
-                   observation: np.ndarray, 
-                   extrinsic_reward: float,
-                   ) -> tuple[np.ndarray, dict[str, Any], bool]:
-        # ICM after Normalize
-        observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
-        observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
-        feature, inverse_loss, correct = self._update_and_get_icm(observation)
-
-        # Predictor
-        predictor_loss = self._update_and_get_predictor(feature)
+        predictor_loss = predictor_loss.item()
         intrinsic_reward = predictor_loss
         reward = extrinsic_reward + intrinsic_reward
 
@@ -144,16 +134,16 @@ class PredictiveAgent:
         # Load models from each files
         if load_feature_extractor != 'None':
             self._feature_extractor.load_state_dict(
-                torch.load(get_load_path(load_inverse, 'feature-extractor-network')))
+                torch.load(get_load_path(load_feature_extractor, 'feature-extractor-network')))
         if load_inverse != 'None':
-            self._feature_extractor.load_state_dict(
+            self._inverse_network.load_state_dict(
                 torch.load(get_load_path(load_inverse, 'inverse-network')))
         if load_inner_state_predictor != 'None':
-            self._predictor.load_state_dict(
-                torch.load(get_load_path(load_inner_state_predictor, 'predictor-network')))
+            self._inner_state_predictor.load_state_dict(
+                torch.load(get_load_path(load_inner_state_predictor, 'inner-state-predictor-network')))
         if load_feature_predictor != 'None':
-            self._predictor.load_state_dict(
-                torch.load(get_load_path(load_feature_predictor, 'predictor-network')))
+            self._feature_predictor.load_state_dict(
+                torch.load(get_load_path(load_feature_predictor, 'feature-predictor-network')))
         if load_controller != 'None':
             self._controller_agent.load(load_controller)
     

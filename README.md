@@ -27,6 +27,8 @@
   - Network configuration
   - Save and load
 
+  - Implement VBN-like, curiosity-like, 
+
 - Others
   - v Fine tuning
   - v Name to predictive-agent
