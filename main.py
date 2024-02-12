@@ -10,7 +10,9 @@ if __name__ == '__main__':
         prog="Predictive navigation agent RL framework",
         description="RL agent with predictive module"
     )
-    argument_parser.add_argument('--config', default='config.conf', help="A configuration file to set configurations")
+    argument_parser.add_argument('--config', 
+                                 default='config.conf', 
+                                 help="A configuration file to set configurations")
     args = argument_parser.parse_args()
     with open(args.config) as f:
         config = full_load(f)
@@ -22,9 +24,18 @@ if __name__ == '__main__':
     controller_lr = float(config['controller_lr'])
     load_args = (
         config['load'], 
+        config['load_feature_extractor'],
         config['load_inverse'], 
-        config['load_predictor'], 
+        config['load_inner_state_predictor'],
+        config['load_feature_predictor'], 
         config['load_controller'])
+    module_args = (
+        config['feature_extractor_module'],
+        config['inverse_module'],
+        config['feature_predictor_module'],
+        config['inner_state_predictor_module'],
+        config['controller_module'],
+    )
     lr_args = (
         feature_extractor_inverse_lr, 
         predictor_lr, 
@@ -47,10 +58,11 @@ if __name__ == '__main__':
         skip_save=config['skip_save'],
         load_args=load_args,
         device=config['device'],
+        feature_size=config['feature_size'],
+        hidden_state_size=config['hidden_state_size'],
+        module_args=module_args,
         lr_args=lr_args,
         policy_discount=config['policy_discount'],
         gamma=config['gamma'],
-        hidden_state_size=config['hidden_state_size'],
-        feature_size=config['feature_size'],
         )
     trainer.train()

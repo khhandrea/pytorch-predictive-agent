@@ -25,6 +25,7 @@
 - Feb 1st
   - Make inverse network module
   - Network configuration
+  - Save and load
 
 - Others
   - v Fine tuning

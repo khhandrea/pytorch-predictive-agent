@@ -1,5 +1,4 @@
 from torch import nn, Tensor
-from torch.nn.functional import normalize
 
 class MLP(nn.Module):
     def __init__(self, 
@@ -32,6 +31,29 @@ class MLP(nn.Module):
                 f"layer{len(layerwise_shape) - 1}-softmax",
                 nn.Softmax(dim=1)
             )
+
+    def forward(self, input: Tensor) -> Tensor:
+        output = self._model(input)
+        return output
+
+class DefaultLinearInverseModule(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self._model = nn.Sequential(
+            nn.Linear(256 + 256, 256),
+            nn.ReLU(),
+            nn.Linear(256, 4),
+            nn.Softmax(dim=1)
+        )
+
+    def forward(self, input: Tensor) -> Tensor:
+        output = self._model(input)
+        return output
+
+class DefaultLinearFeaturePredictor(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self._model = nn.Linear(256 + 4, 256)
 
     def forward(self, input: Tensor) -> Tensor:
         output = self._model(input)

@@ -8,7 +8,8 @@ from torch import nn, optim, Tensor
 from torch.nn import functional as F
 
 from controller_agent import ControllerAgent
-from models import SimpleCNN, MLP
+from utils import get_class_from_module, makedir_and_save_module, get_load_path
+
 
 class PredictiveAgent:
     def __init__(self, 
@@ -17,10 +18,11 @@ class PredictiveAgent:
                  random_policy: bool,
                  path: str,
                  device: str,
+                 feature_size: int,
+                 hidden_state_size: int,
+                 module_args: tuple[str, str, str, str, str],
                  lr_args: tuple[float, float, float],
                  gamma: float,
-                 hidden_state_size: int,
-                 feature_size: int,
                  policy_discount: float,
                  ):
         if device != 'cpu':
@@ -35,29 +37,24 @@ class PredictiveAgent:
         self._prev_observation = torch.zeros(observation_shape).to(self._device)
         self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
         self._inner_state = torch.zeros(1, hidden_state_size).to(self._device)
+        feature_extractor_module, inverse_module, feature_predictor_module,\
+            inner_state_predictor_module, controller_module = module_args
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
 
-        self._feature_extractor = SimpleCNN(feature_size).to(self._device)
-        self._inverse_network = MLP(
-            (feature_size * 2, feature_size, self._action_space.n),
-            end_with_softmax = True
-            ).to(self._device)
-        self._feature_predictor = nn.Linear(
-            hidden_state_size + self._action_space.n, feature_size
-            ).to(self._device)
-        self._inner_state_predictor = nn.LSTM(
-            input_size = self._action_space.n + feature_size,
-            hidden_size = hidden_state_size,
-            num_layers = 2
-            ).to(self._device)
+        self._feature_extractor = get_class_from_module('models', feature_extractor_module)().to(self._device)
+        self._inverse_network = get_class_from_module('models', inverse_module)().to(self._device)
+        self._feature_predictor = get_class_from_module('models', feature_predictor_module)().to(self._device)
+        self._inner_state_predictor = get_class_from_module('models', inner_state_predictor_module)().to(self._device)
         self._controller_agent = ControllerAgent(
             feature_size=feature_size,
             action_space=self._action_space,
             random_policy=random_policy,
+            controller_module=controller_module,
             gamma=gamma,
             controller_lr=controller_lr,
             policy_discount=policy_discount,
             device=self._device,
+            path=self._path,
             )
 
         self._loss_ce = nn.CrossEntropyLoss()
@@ -87,7 +84,7 @@ class PredictiveAgent:
         inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
         pred_feature = self._feature_predictor(inner_state_action)
         action_feature = torch.cat((self._prev_action, feature), 1)
-        inner_state, _ = self._inner_state_predictor(action_feature)
+        inner_state = self._inner_state_predictor(action_feature)
         predictor_loss = self._loss_mse(feature, pred_feature)
         predictor_loss.backward()
         self._predictor_optimizer.step()
@@ -127,55 +124,59 @@ class PredictiveAgent:
 
         return action, values, correct
 
-    def _get_load_path(self, load_arg: str, network: str) -> str:
-        environment, description, step = load_arg.split('/')
-        return os.path.join('checkpoints', environment, description, network, f'step-{step}') + '.pt'
 
-    def load(self, load_args: tuple[str, str, str, str]):
-        load, load_inverse, load_predictor, load_controller = load_args
+    def load(self, load_args: tuple[str, str, str, str, str, str]):
+        load, load_feature_extractor, load_inverse,\
+            load_inner_state_predictor, load_feature_predictor, load_controller = load_args
 
         # Load models from one directory
         if load != 'None':
             self._feature_extractor.load_state_dict(
-                torch.load(self._get_load_path(load, 'feature-extractor-inverse-network')))
-            self._predictor.load_state_dict(
-                torch.load(self._get_load_path(load, 'predictor-network')))
-            self._controller.load_state_dict(
-                torch.load(self._get_load_path(load, 'controller-network')))
-            
+                torch.load(get_load_path(load, 'feature-extractor-network')))
+            self._inverse_network.load_state_dict(
+                torch.load(get_load_path(load, 'inverse-network')))
+            self._inner_state_predictor.load_state_dict(
+                torch.load(get_load_path(load, 'inner-state-predictor-network')))
+            self._feature_predictor.load_state_dict(
+                torch.load(get_load_path(load, 'feature-predictor-network')))
+            self._controller_agent.load(load)
+
         # Load models from each files
+        if load_feature_extractor != 'None':
+            self._feature_extractor.load_state_dict(
+                torch.load(get_load_path(load_inverse, 'feature-extractor-network')))
         if load_inverse != 'None':
             self._feature_extractor.load_state_dict(
-                torch.load(self._get_load_path(load_inverse, 'feature-extractor-inverse-network')))
-        if load_predictor != 'None':
+                torch.load(get_load_path(load_inverse, 'inverse-network')))
+        if load_inner_state_predictor != 'None':
             self._predictor.load_state_dict(
-                torch.load(self._get_load_path(load_predictor, 'predictor-network')))
+                torch.load(get_load_path(load_inner_state_predictor, 'predictor-network')))
+        if load_feature_predictor != 'None':
+            self._predictor.load_state_dict(
+                torch.load(get_load_path(load_feature_predictor, 'predictor-network')))
         if load_controller != 'None':
-            self._controller.load_state_dict(
-                torch.load(self._get_load_path(load_controller, 'controller-network')))
+            self._controller_agent.load(load_controller)
     
-    def _makedir_and_save_model(self, 
-                                state_dict, 
-                                network: str, 
-                                description: str):
-        path = os.path.join('checkpoints', self._path, network)
-        if not os.path.exists(path):
-            os.makedirs(path)
-        torch.save(
-            state_dict,
-            os.path.join(path, description) + '.pt'
-        )
-
     def save(self, description: str):
-        self._makedir_and_save_model(
+        makedir_and_save_module(
             self._feature_extractor.state_dict(),
-            'feature-extractor-inverse-network',
+            self._path,
+            'feature-extractor-network',
             description)
-        self._makedir_and_save_model(
-            self._predictor.state_dict(),
-            'predictor-network',
+        makedir_and_save_module(
+            self._inverse_network.state_dict(),
+            self._path,
+            'inverse-network',
+            description,
+        )
+        makedir_and_save_module(
+            self._feature_predictor.state_dict(),
+            self._path,
+            'feature-predictor-network',
             description)
-        self._makedir_and_save_model(
-            self._controller.state_dict(),
-            'controller-network',
+        makedir_and_save_module(
+            self._inner_state_predictor.state_dict(),
+            self._path,
+            'inner-state-predictor-network',
             description)
+        self._controller_agent.save(description)

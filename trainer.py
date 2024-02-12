@@ -19,10 +19,11 @@ class Trainer:
             skip_save: bool,
             load_args: tuple[str, str, str, str],
             device: str,
+            feature_size: int,
+            hidden_state_size: int,
+            module_args: tuple[str, str, str, str, str],
             lr_args: tuple[float, float, float],
             gamma: float,
-            hidden_state_size: int,
-            feature_size: int,
             policy_discount: float
             ):
         self._env = env
@@ -39,11 +40,13 @@ class Trainer:
             random_policy=random_policy,
             path=path,
             device=device,
+            feature_size=feature_size,
+            hidden_state_size=hidden_state_size,
+            module_args=module_args,
             lr_args=lr_args,
             policy_discount=policy_discount,
             gamma=gamma,
-            hidden_state_size=hidden_state_size,
-            feature_size=feature_size)
+        )
         self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,

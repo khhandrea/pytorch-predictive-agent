@@ -1,5 +1,7 @@
 from models.mlp import MLP
 
-from models.cnn import SimpleCNN
-
-from models.actor_critic import DiscreteLinearActorCritic
+from models.cnn import DefaultCNNFeatureExtractor
+from models.mlp import DefaultLinearInverseModule
+from models.mlp import DefaultLinearFeaturePredictor
+from models.rnn import DefaultLSTMInnerStatePredictor
+from models.actor_critic import DefaultDiscreteLinearActorCritic

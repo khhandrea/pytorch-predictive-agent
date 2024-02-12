@@ -1,7 +1,7 @@
 from torch import nn, Tensor
 
-class SimpleCNN(nn.Module):
-    def __init__(self, feature_size: int):
+class DefaultCNNFeatureExtractor(nn.Module):
+    def __init__(self):
         super().__init__()
         self._cnns = nn.Sequential(
             # 3 x 64 x 64
@@ -27,13 +27,13 @@ class SimpleCNN(nn.Module):
         )
 
         self._fc = nn.Sequential(
-            nn.Linear(128 * 4 * 4, feature_size),
+            nn.Linear(128 * 4 * 4, 256),
             nn.ReLU()
         )
 
-    def forward(self, x: Tensor) -> Tensor:
-        assert x.shape[1:] == (3, 64, 64)
-        x = self._cnns(x)
-        x = x.view(-1, 128 * 4 * 4)
-        x = self._fc(x)
-        return x
+    def forward(self, input: Tensor) -> Tensor:
+        assert input.shape[1:] == (3, 64, 64)
+        z = self._cnns(input)
+        z = z.view(-1, 128 * 4 * 4)
+        result = self._fc(z)
+        return result
