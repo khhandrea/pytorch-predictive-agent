@@ -21,7 +21,7 @@
 # hidden_state_size
 # feature_size
 
-description: default
+description: test
 
 load: None
 load_feature_extractor: None
@@ -46,6 +46,7 @@ feature_extractor_inverse_lr: 1e-4
 predictor_lr: 1e-4
 controller_lr: 1e-4
 policy_discount: 0.2
+entropy_discount: 0.0
 gamma: 0.99
 
 feature_size: 256

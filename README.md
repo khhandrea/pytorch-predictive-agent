@@ -1,46 +1,15 @@
 # Python-predict-agent
 
 ## TODO
-- Jan 2nd
-  - v 1d feature, discrete action FeatureExtractorInverseNetwork
-  - v average loss
-  - v Save
-  - v Load
-  - v GPU
-  - v pygame
-  - v Load each
-  - v PredictorNetwork
-  - v Overfitting
+- CircularEnvironment
+- Continuous action
+- Implement VBN-like, curiosity-like, world-model-like
+- Put random policy an entropy
 
-- Jan 3rd
-  - v ControllerNetwork
-  - CircularEnvironment
-
-- Jan 4th
-  - v Read deepmind-lab
-  - v ComplexEnvironment
-  - v 2d FeatureExtractorInverseNetwork
-  - Continuous action
-
-- Feb 1st
-  - Make inverse network module
-  - Network configuration
-  - Save and load
-
-  - Implement VBN-like, curiosity-like, world-model-like
-  - Put random policy an entropy
-
-- Others
-  - v Fine tuning
-  - v Name to predictive-agent
-  - Makefile setting
-    - ref. https://kimjingo.tistory.com/203
-  - LSTM to icm
-  - parallel modules
-  - Best checkpoint
-  - Rethinking loss at once
-  - Theoretical proof of convergence
-  - prev_input -> prev_feature with retain_graph=True?
+- Makefile setting (ref. https://kimjingo.tistory.com/203)
+- Parallel modules
+- Rethinking loss at once
+- Theoretical proof of convergence
 
 ## Usage
 - Train help

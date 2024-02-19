@@ -24,7 +24,8 @@ class Trainer:
             module_args: tuple[str, str, str, str, str],
             lr_args: tuple[float, float, float],
             gamma: float,
-            policy_discount: float
+            policy_discount: float,
+            entropy_discount: float,
             ):
         self._env = env
         check_env(self._env, skip_render_check=True)
@@ -47,6 +48,7 @@ class Trainer:
             module_args=module_args,
             lr_args=lr_args,
             policy_discount=policy_discount,
+            entropy_discount=entropy_discount,
             gamma=gamma,
         )
         self._save_interval = save_interval
@@ -81,18 +83,18 @@ class Trainer:
         self._print_progress(first=True)
         step = 1
         extrinsic_reward = 0
-        inverse_accuracy = sum_pred = sum_policy = sum_value = 0.
+        sum_correct = sum_pred = sum_policy = sum_value = 0.
         values = {}
         start_time = time()
         while not (terminated or truncated):
-            action, values, inverse_correct = self._agent.get_action(observation, extrinsic_reward)
+            action, values = self._agent.get_action(observation, extrinsic_reward)
             observation, extrinsic_reward, terminated, truncated, info = self._env.step(action)
 
             values['reward/extrinsic_reward'] = extrinsic_reward
             values['exploration/state_x'] = self._env.coordinate[0]
             values['exploration/state_y'] = self._env.coordinate[1]
             self._log_writer.write(values, step)
-            inverse_accuracy += 1 if inverse_correct else 0
+            sum_correct += values['icm/inverse_correct']
             sum_pred += values['icm/predictor_loss']
             sum_policy += values['controller/policy_loss']
             sum_value += values['controller/value_loss']
@@ -102,11 +104,11 @@ class Trainer:
                 self._print_progress(
                     False,
                     step,
-                    inverse_accuracy / self._progress_interval,
+                    sum_correct / self._progress_interval,
                     sum_pred / self._progress_interval,
                     sum_policy / self._progress_interval,
                     sum_value / self._progress_interval)
-                inverse_accuracy = sum_pred = sum_policy = sum_value = 0.
+                sum_correct = sum_pred = sum_policy = sum_value = 0.
 
             # Save the model periodically
             if step % self._save_interval == 0:

@@ -1,5 +1,9 @@
-from models.cnn import DefaultCNNFeatureExtractor
-from models.mlp import CuriosityLinearInverseModule
-from models.mlp import CuriosityLinearFeaturePredictor
-from models.rnn import DefaultLSTMInnerStatePredictor
-from models.actor_critic import DefaultDiscreteLinearActorCritic, LSTMDiscreteLinearActorCritic
+from models.feature_extractor import DefaultCNNFeatureExtractor
+
+from models.inverse_module import CuriosityLinearInverseModule
+
+from models.feature_predictor import CuriosityLinearFeaturePredictor
+
+from models.inner_state_predictor import DefaultLSTMInnerStatePredictor
+
+from models.controller import DefaultDiscreteLinearActorCritic, LSTMDiscreteLinearActorCritic

@@ -1,10 +1,9 @@
 from itertools import chain
-import os
 from typing import Any
 
 import numpy as np
 import torch
-from torch import nn, optim, Tensor
+from torch import nn, optim
 from torch.nn import functional as F
 
 from controller_agent import ControllerAgent
@@ -24,6 +23,7 @@ class PredictiveAgent:
                  lr_args: tuple[float, float, float],
                  gamma: float,
                  policy_discount: float,
+                 entropy_discount: float,
                  ):
         if device != 'cpu':
             assert torch.cuda.is_available()
@@ -53,6 +53,7 @@ class PredictiveAgent:
             gamma=gamma,
             controller_lr=controller_lr,
             policy_discount=policy_discount,
+            entropy_discount=entropy_discount,
             device=self._device,
             path=self._path,
             )
@@ -68,43 +69,54 @@ class PredictiveAgent:
     def get_action(self, 
                    observation: np.ndarray, 
                    extrinsic_reward: float,
-                   ) -> tuple[np.ndarray, dict[str, Any], bool]:
-        # ICM after Normalize
+                   ) -> tuple[np.ndarray, dict[str, Any]]:
+        ## ICM module
+        # Normalize
         observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
         observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
+
         self._feature_extractor_optimizer.zero_grad()
+
         prev_feature = self._feature_extractor(self._prev_observation)
         feature = self._feature_extractor(observation)
         concatenated_feature = torch.cat((prev_feature, feature), 1)
+
         pred_prev_action = self._inverse_network(concatenated_feature)
+
         inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
         inverse_loss.backward()
         self._feature_extractor_optimizer.step()
-        self._prev_observation = observation
-        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
-        inverse_loss = inverse_loss.item()
 
-        # Predictor
-        self._predictor_optimizer.zero_grad()
+        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
+        inverse_loss_item = inverse_loss.item()
         feature = feature.detach()
+        self._prev_observation = observation
+
+        ## Predictor
+        self._predictor_optimizer.zero_grad()
+
         inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
         pred_feature = self._feature_predictor(inner_state_action)
+
         action_feature = torch.cat((self._prev_action, feature), 1)
         inner_state = self._inner_state_predictor(action_feature)
+        
         predictor_loss = self._loss_mse(feature, pred_feature)
         predictor_loss.backward()
         self._predictor_optimizer.step()
-        self._inner_state = inner_state.detach()
+
         predictor_loss = predictor_loss.item()
+        self._inner_state = inner_state.detach()
         intrinsic_reward = predictor_loss
         reward = extrinsic_reward + intrinsic_reward
 
-        # Controller
+        ## Controller
         action, policy_loss, value_loss, entropy = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
-            'icm/inverse_loss': inverse_loss,
+            'icm/inverse_correct': correct,
+            'icm/inverse_loss': inverse_loss_item,
             'icm/predictor_loss': predictor_loss,
             'controller/policy_loss': policy_loss,
             'controller/value_loss': value_loss,
@@ -112,7 +124,7 @@ class PredictiveAgent:
             'reward/intrinsic_reward': intrinsic_reward
         }
 
-        return action, values, correct
+        return action, values
 
 
     def load(self, load_args: tuple[str, str, str, str, str, str]):
