@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from datetime import datetime
 from yaml import full_load
 
 from environments import MovingImageEnvironment
@@ -40,7 +41,7 @@ if __name__ == '__main__':
         feature_extractor_inverse_lr, 
         predictor_lr, 
         controller_lr)
-    
+
     # Experiment
     env = MovingImageEnvironment(
         render_mode=render_mode,
@@ -50,6 +51,7 @@ if __name__ == '__main__':
         )
     trainer = Trainer(
         env,
+        config_path=args.config,
         random_policy=config['random_policy'],
         description=config['description'],
         skip_log=config['skip_log'],

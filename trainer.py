@@ -1,16 +1,16 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 from time import time
-from datetime import datetime
 
 from gymnasium.utils.env_checker import check_env
 from gymnasium import Env
 
 from agent import PredictiveAgent
-from utils import LogWriter
+from utils import copy_file, LogWriter
 
 class Trainer:
     def __init__(self, 
             env: Env, 
+            config_path: str,
             random_policy: bool,
             description: str,
             skip_log: bool,
@@ -29,12 +29,13 @@ class Trainer:
         self._env = env
         check_env(self._env, skip_render_check=True)
 
-        self._save_interval = save_interval
-        self._skip_save = skip_save
-
         formatted_time = datetime.now().strftime('%y%m%dT%H%M%S')
         path = f'{self._env.__class__.__name__}/{formatted_time}_{description}'
         print(f"path: {path}")
+
+        if not skip_log:
+            copy_file(config_path, 'config_logs', f'{formatted_time}_{description}.yaml')
+
         self._agent = PredictiveAgent(
             observation_space=self._env.observation_space,
             action_space=self._env.action_space, 
@@ -48,6 +49,8 @@ class Trainer:
             policy_discount=policy_discount,
             gamma=gamma,
         )
+        self._save_interval = save_interval
+        self._skip_save = skip_save
         self._agent.load(load_args)
         self._log_writer = LogWriter(
             path=path,

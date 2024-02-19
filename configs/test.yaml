@@ -22,15 +22,19 @@
 # feature_size
 
 description: default
+
 load: None
+load_feature_extractor: None
 load_inverse: None
-load_predictor: None
+load_inner_state_predictor: None
+load_feature_predictor: None
 load_controller: None
+
 device: cuda
 visualize: False
 skip_log: True
 skip_save: True
-save_interval: 50000
+save_interval: 1000
 
 step_max: 5000
 progress_interval: 1000
@@ -43,5 +47,11 @@ predictor_lr: 1e-4
 controller_lr: 1e-4
 policy_discount: 0.2
 gamma: 0.99
-hidden_state_size: 256
+
 feature_size: 256
+hidden_state_size: 256
+feature_extractor_module: DefaultCNNFeatureExtractor
+inverse_module: CuriosityLinearInverseModule
+feature_predictor_module: CuriosityLinearFeaturePredictor
+inner_state_predictor_module: DefaultLSTMInnerStatePredictor
+controller_module: DefaultDiscreteLinearActorCritic

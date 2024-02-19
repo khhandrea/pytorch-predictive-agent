@@ -27,7 +27,8 @@
   - Network configuration
   - Save and load
 
-  - Implement VBN-like, curiosity-like, 
+  - Implement VBN-like, curiosity-like, world-model-like
+  - Put random policy an entropy
 
 - Others
   - v Fine tuning
