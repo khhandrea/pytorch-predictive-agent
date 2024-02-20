@@ -24,6 +24,7 @@ class PredictiveAgent:
                  gamma: float,
                  policy_discount: float,
                  entropy_discount: float,
+                 intrinsic_reward_discount: float,
                  ):
         if device != 'cpu':
             assert torch.cuda.is_available()
@@ -40,6 +41,7 @@ class PredictiveAgent:
         feature_extractor_module, inverse_module, feature_predictor_module,\
             inner_state_predictor_module, controller_module = module_args
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
+        self._intrinsic_reward_discount = intrinsic_reward_discount
 
         self._feature_extractor = get_class_from_module('models', feature_extractor_module)().to(self._device)
         self._inverse_network = get_class_from_module('models', inverse_module)().to(self._device)
@@ -105,22 +107,22 @@ class PredictiveAgent:
         predictor_loss.backward()
         self._predictor_optimizer.step()
 
-        predictor_loss = predictor_loss.item()
+        predictor_loss_item = predictor_loss.item()
         self._inner_state = inner_state.detach()
-        intrinsic_reward = predictor_loss
+        intrinsic_reward = self._intrinsic_reward_discount * predictor_loss_item
         reward = extrinsic_reward + intrinsic_reward
 
         ## Controller
-        action, policy_loss, value_loss, entropy = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
+        action, policy_loss_item, value_loss_item, entropy_item = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
             'icm/inverse_correct': correct,
             'icm/inverse_loss': inverse_loss_item,
-            'icm/predictor_loss': predictor_loss,
-            'controller/policy_loss': policy_loss,
-            'controller/value_loss': value_loss,
-            'controller/entropy': entropy,
+            'icm/predictor_loss': predictor_loss_item,
+            'controller/policy_loss': policy_loss_item,
+            'controller/value_loss': value_loss_item,
+            'controller/entropy': entropy_item,
             'reward/intrinsic_reward': intrinsic_reward
         }
 

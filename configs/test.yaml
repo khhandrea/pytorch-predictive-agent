@@ -47,6 +47,7 @@ predictor_lr: 1e-4
 controller_lr: 1e-4
 policy_discount: 0.2
 entropy_discount: 0.0
+intrinsic_reward_discount: 0.5
 gamma: 0.99
 
 feature_size: 256

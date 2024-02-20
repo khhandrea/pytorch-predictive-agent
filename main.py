@@ -66,6 +66,7 @@ if __name__ == '__main__':
         lr_args=lr_args,
         policy_discount=config['policy_discount'],
         entropy_discount=config['entropy_discount'],
+        intrinsic_reward_discount=config['intrinsic_reward_discount'],
         gamma=config['gamma'],
         )
     trainer.train()

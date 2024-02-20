@@ -26,6 +26,7 @@ class Trainer:
             gamma: float,
             policy_discount: float,
             entropy_discount: float,
+            intrinsic_reward_discount: float,
             ):
         self._env = env
         check_env(self._env, skip_render_check=True)
@@ -49,6 +50,7 @@ class Trainer:
             lr_args=lr_args,
             policy_discount=policy_discount,
             entropy_discount=entropy_discount,
+            intrinsic_reward_discount=intrinsic_reward_discount,
             gamma=gamma,
         )
         self._save_interval = save_interval
