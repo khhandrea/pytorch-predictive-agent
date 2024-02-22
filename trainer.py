@@ -24,9 +24,11 @@ class Trainer:
             hidden_state_size: int,
             module_args: tuple[str, str, str, str, str],
             lr_args: tuple[float, float, float],
+            optimizer_args: tuple[str, str, str],
             gamma: float,
             policy_discount: float,
             entropy_discount: float,
+            predictor_loss_discount: float,
             intrinsic_reward_discount: float,
             ):
         self._env = env
@@ -49,8 +51,10 @@ class Trainer:
             hidden_state_size=hidden_state_size,
             module_args=module_args,
             lr_args=lr_args,
+            optimizer_args=optimizer_args,
             policy_discount=policy_discount,
             entropy_discount=entropy_discount,
+            predictor_loss_discount=predictor_loss_discount,
             intrinsic_reward_discount=intrinsic_reward_discount,
             gamma=gamma,
         )

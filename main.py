@@ -40,6 +40,11 @@ if __name__ == '__main__':
         feature_extractor_inverse_lr, 
         predictor_lr, 
         controller_lr)
+    optimizer_args = (
+        config['feature_extractor_optimizer'],
+        config['predictor_optimizer'],
+        config['controller_optimizer']
+    )
 
     # Experiment
     print(config['description'])
@@ -65,9 +70,11 @@ if __name__ == '__main__':
         hidden_state_size=config['hidden_state_size'],
         module_args=module_args,
         lr_args=lr_args,
+        optimizer_args=optimizer_args,
         policy_discount=config['policy_discount'],
         entropy_discount=config['entropy_discount'],
         intrinsic_reward_discount=config['intrinsic_reward_discount'],
+        predictor_loss_discount=config['predictor_loss_discount'],
         gamma=config['gamma'],
         )
     trainer.train()

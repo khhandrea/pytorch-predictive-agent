@@ -57,11 +57,15 @@ random_policy: False
 noise_scale: 3.0
 
 feature_extractor_inverse_lr: 1e-4
+feature_extractor_optimizer: sgd
 predictor_lr: 1e-4
+predictor_optimizer: sgd
 controller_lr: 1e-4
+controller_optimizer: sgd
 policy_discount: 0.2
 entropy_discount: 0.0
 intrinsic_reward_discount: 0.5
+predictor_loss_discount: 0.25
 gamma: 0.99
 
 feature_size: 256

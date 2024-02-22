@@ -1,3 +1,4 @@
+from random import randint
 from typing import Any
 
 import gymnasium as gym
@@ -37,7 +38,7 @@ class MovingImageEnvironment(gym.Env):
               options=None) -> tuple[np.ndarray, dict[str, Any]]:
         super().reset(seed=seed)
 
-        self.coordinate = [0, 0]
+        self.coordinate = [randint(0, self._image.width), randint(0, self._image.height)]
         self._step = 0
 
         observation = self._get_observation()

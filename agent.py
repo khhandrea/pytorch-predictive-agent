@@ -21,9 +21,11 @@ class PredictiveAgent:
                  hidden_state_size: int,
                  module_args: tuple[str, str, str, str, str],
                  lr_args: tuple[float, float, float],
+                 optimizer_args: tuple[str, str, str],
                  gamma: float,
                  policy_discount: float,
                  entropy_discount: float,
+                 predictor_loss_discount: float,
                  intrinsic_reward_discount: float,
                  ):
         if device != 'cpu':
@@ -42,6 +44,17 @@ class PredictiveAgent:
             inner_state_predictor_module, controller_module = module_args
         feature_extractor_inverse_lr, predictor_lr, controller_lr = lr_args
         self._intrinsic_reward_discount = intrinsic_reward_discount
+        self._predictor_loss_discount = predictor_loss_discount
+        
+        feature_extractor_optimizer = optim.SGD
+        if optimizer_args[0].lower() == 'adam':
+            feature_extractor_optimizer = optim.Adam
+        predictor_optimizer = optim.SGD
+        if optimizer_args[1].lower() == 'adam':
+            predictor_optimizer = optim.Adam
+        controller_optimizer = optim.SGD
+        if optimizer_args[2].lower() == 'adam':
+            controller_optimizer = optim.Adam
 
         self._feature_extractor = get_class_from_module('models', feature_extractor_module)().to(self._device)
         self._inverse_network = get_class_from_module('models', inverse_module)().to(self._device)
@@ -53,7 +66,8 @@ class PredictiveAgent:
             random_policy=random_policy,
             controller_module=controller_module,
             gamma=gamma,
-            controller_lr=controller_lr,
+            lr=controller_lr,
+            optimizer=controller_optimizer,
             policy_discount=policy_discount,
             entropy_discount=entropy_discount,
             device=self._device,
@@ -65,56 +79,68 @@ class PredictiveAgent:
 
         icm = chain(self._feature_extractor.parameters(), self._inverse_network.parameters())
         predictor = chain(self._feature_predictor.parameters(), self._inner_state_predictor.parameters())
-        self._feature_extractor_optimizer = optim.Adam(icm, lr=feature_extractor_inverse_lr)
-        self._predictor_optimizer = optim.Adam(predictor, lr=predictor_lr)
+        self._feature_extractor_optimizer = feature_extractor_optimizer(icm, lr=feature_extractor_inverse_lr)
+        self._predictor_optimizer = predictor_optimizer(predictor, lr=predictor_lr)
+
+        models = chain(self._feature_extractor.parameters(), self._inverse_network.parameters(), self._feature_predictor.parameters(), self._inner_state_predictor.parameters())
+        self._optimizer = optim.Adam(models, lr=1e-3)
 
     def get_action(self, 
                    observation: np.ndarray, 
                    extrinsic_reward: float,
                    ) -> tuple[np.ndarray, dict[str, Any], bool]:
-        ## ICM module
-        # Normalize
+        # Normalize observation
         observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
         observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
 
+        # Initialize optimizers
         self._feature_extractor_optimizer.zero_grad()
+        self._predictor_optimizer.zero_grad()
+        self._optimizer.zero_grad()
 
+        # Inference with inverse module
         prev_feature = self._feature_extractor(self._prev_observation)
         feature = self._feature_extractor(observation)
         concatenated_feature = torch.cat((prev_feature, feature), 1)
-
         pred_prev_action = self._inverse_network(concatenated_feature)
 
-        inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
-        inverse_loss.backward()
-        self._feature_extractor_optimizer.step()
-
-        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
-        inverse_loss_item = inverse_loss.item()
-        feature = feature.detach()
         self._prev_observation = observation
 
-        ## Predictor
-        self._predictor_optimizer.zero_grad()
-
+        # Inference with feature predictor
         inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
         pred_feature = self._feature_predictor(inner_state_action)
 
-        action_feature = torch.cat((self._prev_action, feature), 1)
-        inner_state = self._inner_state_predictor(action_feature)
-        
-        predictor_loss = self._loss_mse(feature, pred_feature)
-        predictor_loss.backward()
-        self._predictor_optimizer.step()
+        # # Update inverse modules
+        # inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
+        # inverse_loss.backward()
+        # self._feature_extractor_optimizer.step()
 
+        # # Update predictors
+        # predictor_loss = self._loss_mse(feature.detach(), pred_feature)
+        # predictor_loss.backward()
+        # self._predictor_optimizer.step()
+
+        # Update modules
+        inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
+        predictor_loss = self._loss_mse(feature.detach(), pred_feature)
+        total_loss = 0.8 * inverse_loss + self._predictor_loss_discount * predictor_loss
+        total_loss.backward()
+        self._optimizer.step()
+
+        # Inference with inner state predictor
+        action_feature = torch.cat((self._prev_action, feature.detach()), 1)
+        self._inner_state = self._inner_state_predictor(action_feature)
+
+        # Update values
+        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
+        inverse_loss_item = inverse_loss.item()
         predictor_loss_item = predictor_loss.item()
-        self._inner_state = inner_state.detach()
         intrinsic_reward = self._intrinsic_reward_discount * predictor_loss_item
         reward = extrinsic_reward + intrinsic_reward
 
-        ## Controller
+        # Controller
         action, policy_loss_item, value_loss_item, entropy_item = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
-        self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
+        self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float().to(self._device)
 
         values = {
             'icm/inverse_loss': inverse_loss_item,

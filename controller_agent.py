@@ -12,7 +12,8 @@ class ControllerAgent:
                  random_policy: bool, 
                  controller_module: str,
                  gamma: float,
-                 controller_lr: float,
+                 lr: float,
+                 optimizer: optim,
                  policy_discount: float,
                  entropy_discount: float,
                  device: torch.device,
@@ -30,7 +31,7 @@ class ControllerAgent:
         self._loss_mse = nn.MSELoss()
         self._prev_input = torch.zeros(1, feature_size).to(self._device)
         self._log_prob = tensor(0).to(self._device)
-        self._controller_optimizer = optim.Adam(self._controller.parameters(), lr=controller_lr)
+        self._controller_optimizer = optimizer(self._controller.parameters(), lr=lr)
 
     def get_action_and_update(self, input: Tensor, reward: float) -> tuple[Tensor, float, float]:
         if self._random_policy:
