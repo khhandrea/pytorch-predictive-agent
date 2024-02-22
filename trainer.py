@@ -12,10 +12,11 @@ class Trainer:
             env: Env, 
             config_path: str,
             random_policy: bool,
-            description: str,
+            name: str,
             skip_log: bool,
             progress_interval: int,
             save_interval: int,
+            inverse_accuracy_batch_size: int,
             skip_save: bool,
             load_args: tuple[str, str, str, str],
             device: str,
@@ -32,11 +33,11 @@ class Trainer:
         check_env(self._env, skip_render_check=True)
 
         formatted_time = datetime.now().strftime('%y%m%dT%H%M%S')
-        path = f'{self._env.__class__.__name__}/{formatted_time}_{description}'
+        path = f'{self._env.__class__.__name__}/{formatted_time}_{name}'
         print(f"path: {path}")
 
         if not skip_log:
-            copy_file(config_path, 'config_logs', f'{formatted_time}_{description}.yaml')
+            copy_file(config_path, 'config_logs', f'{formatted_time}_{name}.yaml')
 
         self._agent = PredictiveAgent(
             observation_space=self._env.observation_space,
@@ -54,6 +55,7 @@ class Trainer:
             gamma=gamma,
         )
         self._save_interval = save_interval
+        self._inverse_accuracy_batch_size = inverse_accuracy_batch_size
         self._skip_save = skip_save
         self._agent.load(load_args)
         self._log_writer = LogWriter(
@@ -85,32 +87,39 @@ class Trainer:
         self._print_progress(first=True)
         step = 1
         extrinsic_reward = 0
-        sum_correct = sum_pred = sum_policy = sum_value = 0.
+        sum_inverse_correct = sum_inverse_correct_progress\
+            = sum_pred = sum_policy = sum_value = 0.
         values = {}
         start_time = time()
         while not (terminated or truncated):
-            action, values = self._agent.get_action(observation, extrinsic_reward)
+            action, values, inverse_correct = self._agent.get_action(observation, extrinsic_reward)
             observation, extrinsic_reward, terminated, truncated, info = self._env.step(action)
 
             values['reward/extrinsic_reward'] = extrinsic_reward
             values['exploration/state_x'] = self._env.coordinate[0]
             values['exploration/state_y'] = self._env.coordinate[1]
-            self._log_writer.write(values, step)
-            sum_correct += values['icm/inverse_correct']
+            
+            sum_inverse_correct += inverse_correct
+            sum_inverse_correct_progress += inverse_correct
             sum_pred += values['icm/predictor_loss']
             sum_policy += values['controller/policy_loss']
             sum_value += values['controller/value_loss']
+
+            if step % self._inverse_accuracy_batch_size == 0:
+                values['icm/inverse_accuracy'] = sum_inverse_correct / self._inverse_accuracy_batch_size
+                sum_inverse_correct = 0
+            self._log_writer.write(values, step)
 
             # Print the progress periodically
             if step % self._progress_interval == 0:
                 self._print_progress(
                     False,
                     step,
-                    sum_correct / self._progress_interval,
+                    sum_inverse_correct_progress / self._progress_interval,
                     sum_pred / self._progress_interval,
                     sum_policy / self._progress_interval,
                     sum_value / self._progress_interval)
-                sum_correct = sum_pred = sum_policy = sum_value = 0.
+                sum_inverse_correct_progress = sum_pred = sum_policy = sum_value = 0.
 
             # Save the model periodically
             if step % self._save_interval == 0:

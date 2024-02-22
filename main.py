@@ -1,5 +1,4 @@
 from argparse import ArgumentParser
-from datetime import datetime
 from yaml import full_load
 
 from environments import MovingImageEnvironment
@@ -43,6 +42,7 @@ if __name__ == '__main__':
         controller_lr)
 
     # Experiment
+    print(config['description'])
     env = MovingImageEnvironment(
         render_mode=render_mode,
         agent_speed=config['agent_speed'],
@@ -53,10 +53,11 @@ if __name__ == '__main__':
         env,
         config_path=args.config,
         random_policy=config['random_policy'],
-        description=config['description'],
+        name=config['name'],
         skip_log=config['skip_log'],
         progress_interval=config['progress_interval'],
         save_interval=config['save_interval'],
+        inverse_accuracy_batch_size=config['inverse_accuracy_batch_size'],
         skip_save=config['skip_save'],
         load_args=load_args,
         device=config['device'],

@@ -71,7 +71,7 @@ class PredictiveAgent:
     def get_action(self, 
                    observation: np.ndarray, 
                    extrinsic_reward: float,
-                   ) -> tuple[np.ndarray, dict[str, Any]]:
+                   ) -> tuple[np.ndarray, dict[str, Any], bool]:
         ## ICM module
         # Normalize
         observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
@@ -117,7 +117,6 @@ class PredictiveAgent:
         self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float().to(self._device)
 
         values = {
-            'icm/inverse_correct': correct,
             'icm/inverse_loss': inverse_loss_item,
             'icm/predictor_loss': predictor_loss_item,
             'controller/policy_loss': policy_loss_item,
@@ -126,7 +125,7 @@ class PredictiveAgent:
             'reward/intrinsic_reward': intrinsic_reward
         }
 
-        return action, values
+        return action, values, correct
 
 
     def load(self, load_args: tuple[str, str, str, str, str, str]):

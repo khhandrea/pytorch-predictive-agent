@@ -1,27 +1,40 @@
-# [DEFAULT]
-# random_policy: The agent chooses a random action
-# visualize: The window is showed
-# skip_log: The log won't be written
-# progress_interval: Per how many steps to print the progress
-# agent_speed: Set the agent's moving speed
-# step_max: Max step of one episode
-# description: A name of the experiment
-# save_interval: Per how many steps to save the model
-# skip_save: The model won’t be saved
+# name: A name of the experiment
+# description: A description of the experiment. It is not used in the program
+#
 # load: Load the networks’ parameters from the entire path. Format: (environment)/(description)/(step)
 # load_inverse: Load feature extractor inverse network parameters from the specific file. Format: (environment)/(description)/(step)
 # load_predictor: Load predictor network parameters from the specific file. Format: (environment)/(description)/(step)
 # load_controller: Load controller network parameters from the specific file. Format: (environment)/(description)/(step)
-# device: The program uses the cpu in purpose
 #
-# [hyperparameter]
+# device: The program uses the cpu in purpose
+# visualize: The window is showed
+# skip_log: The log won't be written
+# skip_save: The model won’t be saved
+# save_interval: Per how many steps to save the model
+#
+# step_max: Max step of one episode
+# progress_interval: Per how many steps to print the progress
+# agent_speed: Set the agent's moving speed
+# random_policy: The agent chooses a random action
+#
 # feature_extractor_inverse_lr
 # predictor_lr
 # controller_lr
-# hidden_state_size
+# policy_discount
+# entropy_discount
+# intrinsic_reward_discount
+# gamma
+#
 # feature_size
+# hidden_state_size
+# feature_extractor_module
+# inverse_module
+# feature_predictor_module
+# inner_state_predictor_module
+# controller_module
 
-description: test
+name: test
+description: test # Not used
 
 load: None
 load_feature_extractor: None
@@ -38,6 +51,7 @@ save_interval: 1000
 
 step_max: 5000
 progress_interval: 1000
+inverse_accuracy_batch_size: 1000 # = progress_interval if 0
 agent_speed: 10
 random_policy: False
 noise_scale: 3.0
