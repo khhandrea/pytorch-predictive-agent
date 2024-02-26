@@ -13,7 +13,7 @@ class ControllerAgent:
                  controller_module: str,
                  gamma: float,
                  lr: float,
-                 optimizer: optim,
+                 optimizer_arg: str,
                  policy_discount: float,
                  entropy_discount: float,
                  device: torch.device,
@@ -31,6 +31,12 @@ class ControllerAgent:
         self._loss_mse = nn.MSELoss()
         self._prev_input = torch.zeros(1, feature_size).to(self._device)
         self._log_prob = tensor(0).to(self._device)
+
+
+        optimizer = optim.SGD
+        if optimizer_arg.lower() == 'adam':
+            optimizer = optim.Adam
+
         self._controller_optimizer = optimizer(self._controller.parameters(), lr=lr)
 
     def get_action_and_update(self, input: Tensor, reward: float) -> tuple[Tensor, float, float]:

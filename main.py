@@ -19,8 +19,7 @@ if __name__ == '__main__':
 
     # Preprocessing config
     render_mode = 'human' if config['visualize'] else 'none'
-    feature_extractor_inverse_lr = float(config['feature_extractor_inverse_lr'])
-    predictor_lr = float(config['predictor_lr'])
+    inverse_module_predictor_lr = float(config['inverse_module_predictor_lr'])
     controller_lr = float(config['controller_lr'])
     load_args = (
         config['load'], 
@@ -37,12 +36,10 @@ if __name__ == '__main__':
         config['controller_module'],
     )
     lr_args = (
-        feature_extractor_inverse_lr, 
-        predictor_lr, 
+        inverse_module_predictor_lr, 
         controller_lr)
     optimizer_args = (
-        config['feature_extractor_optimizer'],
-        config['predictor_optimizer'],
+        config['inverse_module_predictor_optimizer'],
         config['controller_optimizer']
     )
 

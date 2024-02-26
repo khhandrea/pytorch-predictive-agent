@@ -23,7 +23,7 @@ class Trainer:
             feature_size: int,
             hidden_state_size: int,
             module_args: tuple[str, str, str, str, str],
-            lr_args: tuple[float, float, float],
+            lr_args: tuple[float, float],
             optimizer_args: tuple[str, str, str],
             gamma: float,
             policy_discount: float,

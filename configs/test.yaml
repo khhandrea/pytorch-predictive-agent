@@ -56,10 +56,8 @@ agent_speed: 10
 random_policy: False
 noise_scale: 3.0
 
-feature_extractor_inverse_lr: 1e-4
-feature_extractor_optimizer: sgd
-predictor_lr: 1e-4
-predictor_optimizer: sgd
+inverse_module_predictor_lr: 1e-3
+inverse_module_predictor_optimizer: sgd
 controller_lr: 1e-4
 controller_optimizer: sgd
 policy_discount: 0.2
