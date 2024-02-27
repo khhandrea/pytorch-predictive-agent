@@ -1,16 +1,20 @@
 from argparse import ArgumentParser
+from os import getcwd
 from random import randint
 
 import numpy as np
 
 import deepmind_lab
+from python_predictive_agent.agent import PredictiveAgent
 
 class RandomAgent:
     def __init__(self, action_spec):
         self.action_spec = action_spec
         self.action_count = len(action_spec)
+        agent = PredictiveAgent()
+        print(getcwd())
 
-    def step(self):
+    def step(self, reward, observation):
         action_choice = randint(0, self.action_count - 1)
         action_amount = randint(self.action_spec[action_choice]['min'],
                                 self.action_spec[action_choice]['max'])
@@ -34,7 +38,8 @@ def run():
             print('Environment stopped early')
             env.reset()
             agent.reset()
-        action = agent.step()
+        obs = env.observations()
+        action = agent.step(reward, obs['RGB_INTERLEAVED'])
         reward += env.step(action, num_steps=1)
 
     print(f"Finished after {frame_count} steps.")

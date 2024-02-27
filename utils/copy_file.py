@@ -12,7 +12,6 @@ def copy_file(source_file: str,
         print(f"Error: The destination folder '{destination_folder}' does not exist.")
         return
     
-    
     try:
         destination_file = os.path.join(destination_folder, new_file_name)
         copy(source_file, destination_file)
