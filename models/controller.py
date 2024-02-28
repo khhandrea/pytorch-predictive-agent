@@ -53,6 +53,10 @@ class LSTMDiscreteLinearActorCritic(nn.Module):
             nn.ReLU(),
             nn.Linear(64, 1)
         )
+        
+        for module in self.modules():
+            if isinstance(module, nn.Linear):
+                nn.init.kaiming_uniform_(module.weight.data)
 
     def forward(self, x: Tensor) -> Tensor:
         x = self._shared(x)

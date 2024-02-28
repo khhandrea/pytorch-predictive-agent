@@ -60,6 +60,10 @@ class CuriosityLikeCNNFeatureExtractor(nn.Module):
             # 16 x 4 x 4 (256)
         )
 
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                nn.init.kaiming_uniform_(module.weight.data)
+
     def forward(self, x: Tensor) -> Tensor:
         assert x.shape[1:] == (3, 64, 64)
         x = self._cnns(x)
