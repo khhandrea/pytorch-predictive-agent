@@ -104,7 +104,6 @@ class PredictiveAgent:
         pred_feature = self._feature_predictor(inner_state_action)
 
         # Update modules
-        # print(pred_prev_action.tolist(), self._prev_action.tolist())
         inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
         predictor_loss = self._loss_mse(feature.detach(), pred_feature)
         total_loss = inverse_loss + self._predictor_loss_discount * predictor_loss
