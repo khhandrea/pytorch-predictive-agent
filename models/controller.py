@@ -23,7 +23,7 @@ class DefaultDiscreteLinearActorCritic(nn.Module):
             nn.Linear(64, 1)
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         x = self._shared(x)
         policy = self._actor(x)
         value = self._critic(x)
@@ -58,7 +58,7 @@ class LSTMDiscreteLinearActorCritic(nn.Module):
             if isinstance(module, nn.Linear):
                 nn.init.kaiming_uniform_(module.weight.data)
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         x = self._shared(x)
         hidden, _ = self._lstm(x)
         policy = self._actor(hidden)

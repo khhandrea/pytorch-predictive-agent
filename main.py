@@ -44,7 +44,7 @@ if __name__ == '__main__':
     )
 
     # Experiment
-    print(config['description'])
+    print('description:', config['description'])
     env = MovingImageEnvironment(
         render_mode=render_mode,
         agent_speed=config['agent_speed'],

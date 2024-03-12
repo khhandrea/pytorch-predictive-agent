@@ -33,9 +33,10 @@ class ControllerAgent:
         self._log_prob = tensor(0).to(self._device)
 
 
-        optimizer = optim.SGD
         if optimizer_arg.lower() == 'adam':
             optimizer = optim.Adam
+        else:
+            optimizer = optim.SGD
 
         self._controller_optimizer = optimizer(self._controller.parameters(), lr=lr)
 

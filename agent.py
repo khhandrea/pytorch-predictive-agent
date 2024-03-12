@@ -47,9 +47,10 @@ class PredictiveAgent:
         self._intrinsic_reward_discount = intrinsic_reward_discount
         self._predictor_loss_discount = predictor_loss_discount
         
-        optimizer = optim.SGD
         if optimizer_args[0].lower() == 'adam':
             optimizer = optim.Adam
+        else:
+            optimizer = optim.SGD
 
         self._feature_extractor = get_class_from_module('models', feature_extractor_module)().to(self._device)
         self._inverse_network = get_class_from_module('models', inverse_module)().to(self._device)
