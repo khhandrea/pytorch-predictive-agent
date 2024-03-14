@@ -1,8 +1,14 @@
 from argparse import ArgumentParser
+from time import sleep
+from datetime import datetime
 from yaml import full_load
 
+from torch import load, multiprocessing as mp
+
 from environments import MovingImageEnvironment
-from trainer import Trainer
+from trainer import train
+from utils import copy_file, initialize_custom_model
+from utils import SharedActorCritic
 
 if __name__ == '__main__':
     # Configuration
@@ -10,68 +16,72 @@ if __name__ == '__main__':
         prog="Predictive navigation agent RL framework",
         description="RL agent with predictive module"
     )
-    argument_parser.add_argument('--config', 
-                                 default='config.conf', 
-                                 help="A configuration file to set configurations")
-    args = argument_parser.parse_args()
-    with open(args.config) as f:
+    argument_parser.add_argument('--config', default='configs/test.yaml', help="A configuration file")
+    config_path = argument_parser.parse_args().config
+    with open(config_path) as f:
         config = full_load(f)
 
-    # Preprocessing config
-    render_mode = 'human' if config['visualize'] else 'none'
-    inverse_module_predictor_lr = float(config['inverse_module_predictor_lr'])
-    controller_lr = float(config['controller_lr'])
-    load_args = (
-        config['load'], 
-        config['load_feature_extractor'],
-        config['load_inverse'], 
-        config['load_inner_state_predictor'],
-        config['load_feature_predictor'], 
-        config['load_controller'])
-    module_args = (
-        config['feature_extractor_module'],
-        config['inverse_module'],
-        config['feature_predictor_module'],
-        config['inner_state_predictor_module'],
-        config['controller_module'],
+    experiment = config['experiment']
+    load_path = config['load_path']
+    formatted_time = datetime.now().strftime('%y%m%dT%H%M%S')
+    experiment_name = f"{formatted_time}_{experiment['name']}.yaml"
+    print('Experiment name:', experiment_name)
+    print('Description:', experiment['description'])
+
+    if not experiment['skip_log']:
+        copy_file(config_path, 'config_logs', experiment_name)
+
+    # Global networks
+    networks = (
+        'feature_extractor',
+        'inverse_network',
+        'inner_state_predictor',
+        'feature_predictor',
+        'controller'
     )
-    lr_args = (
-        inverse_module_predictor_lr, 
-        controller_lr)
-    optimizer_args = (
-        config['inverse_module_predictor_optimizer'],
-        config['controller_optimizer']
+    global_networks = {}
+    for network in networks[:-1]:
+        global_networks[network] = initialize_custom_model(config['network_spec'][network])
+    global_networks['controller'] = SharedActorCritic(
+        shared_network=initialize_custom_model(config['network_spec']['controller_shared']),
+        actor_network=initialize_custom_model(config['network_spec']['controller_actor']),
+        critic_network=initialize_custom_model(config['network_spec']['controller_critic'])
     )
 
-    # Experiment
-    print('description:', config['description'])
-    env = MovingImageEnvironment(
-        render_mode=render_mode,
-        agent_speed=config['agent_speed'],
-        step_max=config['step_max'],
-        noise_scale=config['noise_scale'],
-        )
-    trainer = Trainer(
-        env,
-        config_path=args.config,
-        random_policy=config['random_policy'],
-        name=config['name'],
-        skip_log=config['skip_log'],
-        progress_interval=config['progress_interval'],
-        save_interval=config['save_interval'],
-        inverse_accuracy_batch_size=config['inverse_accuracy_batch_size'],
-        skip_save=config['skip_save'],
-        load_args=load_args,
-        device=config['device'],
-        feature_size=config['feature_size'],
-        hidden_state_size=config['hidden_state_size'],
-        module_args=module_args,
-        lr_args=lr_args,
-        optimizer_args=optimizer_args,
-        policy_discount=config['policy_discount'],
-        entropy_discount=config['entropy_discount'],
-        intrinsic_reward_discount=config['intrinsic_reward_discount'],
-        predictor_loss_discount=config['predictor_loss_discount'],
-        gamma=config['gamma'],
-        )
-    trainer.train()
+    # Load and share global networks
+    for network in networks:
+        if load_path[network]:
+            global_networks[network].load_state_dict(load(load_path[network]))
+        global_networks[network].share_memory()
+
+    # Multiprocessing
+    mp.set_start_method('spawn')
+    cpu_num = experiment['cpu_num']
+    if cpu_num == 0:
+        cpu_num = mp.cpu_count()
+
+    env = MovingImageEnvironment
+    env_args = config['environment']
+    hyperparameter = config['hyperparameter']
+    queue = mp.Queue()
+    trainer_args = (env, env_args, hyperparameter, queue, global_networks)
+
+    processes = []
+    for _ in range(cpu_num):
+        process = mp.Process(target=train, args=trainer_args)
+        process.start()
+        processes.append(process)
+
+    # Receiving data
+    while any(process.is_alive() for process in processes) or not queue.empty():
+        if not queue.empty():
+            data = queue.get()
+            print("Got data from the queue:", data)
+            # save
+            # log
+            # print progress
+        else:
+            sleep(0.1)
+
+    for process in processes:
+        process.join()

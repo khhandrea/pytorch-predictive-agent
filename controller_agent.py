@@ -3,7 +3,7 @@ import torch
 from torch.distributions.categorical import Categorical
 from torch import nn, optim, Tensor, tensor
 
-from utils import get_class_from_module, makedir_and_save_module, get_load_path
+from utils import makedir_and_save_module, get_load_path
 
 class ControllerAgent:
     def __init__(self,
@@ -22,7 +22,7 @@ class ControllerAgent:
         self._action_space = action_space
         self._random_policy = random_policy
         self._device = device
-        self._controller = get_class_from_module('models', controller_module)().to(self._device)
+        # self._controller = get_class_from_module('models', controller_module)().to(self._device)
         self._gamma = gamma
         self._policy_discount = policy_discount
         self._entropy_discount = entropy_discount
