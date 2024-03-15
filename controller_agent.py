@@ -1,4 +1,3 @@
-from numpy import log
 import torch
 from torch.distributions.categorical import Categorical
 from torch import nn, optim, Tensor, tensor
@@ -14,60 +13,24 @@ class ControllerAgent:
                  optimizer_arg: str,
                  policy_discount: float,
                  entropy_discount: float,
-                 device: torch.device,
-                 path: str,
                  ):
-        self._action_space = action_space
-        self._random_policy = random_policy
-        self._device = device
-        # self._controller = get_class_from_module('models', controller_module)().to(self._device)
-        self._gamma = gamma
-        self._policy_discount = policy_discount
-        self._entropy_discount = entropy_discount
-        self._path = path
-
-        self._loss_mse = nn.MSELoss()
         self._prev_input = torch.zeros(1, feature_size).to(self._device)
         self._log_prob = tensor(0).to(self._device)
 
-
-        if optimizer_arg.lower() == 'adam':
-            optimizer = optim.Adam
-        else:
-            optimizer = optim.SGD
-
-        self._controller_optimizer = optimizer(self._controller.parameters(), lr=lr)
-
     def get_action_and_update(self, input: Tensor, reward: float) -> tuple[Tensor, float, float]:
-        if self._random_policy:
-            policy_loss_item = 0.
-            value_loss_item = 0.
-            entropy_item = log(self._action_space.n)
-            random_action = self._action_space.sample()
-            action = tensor(random_action, device=self._device).unsqueeze(0)
-        else:
-            # Update
-            self._controller_optimizer.zero_grad()
+        # Update
+        policy, value = self._controller(input)
+        _, prev_value = self._controller(self._prev_input)
+        distribution = Categorical(probs=policy)
 
-            policy, value = self._controller(input)
-            _, prev_value = self._controller(self._prev_input)
-            distribution = Categorical(probs=policy)
+        advantage = reward + self._gamma * value - prev_value
+        value_loss = self._loss_mse(reward + self._gamma * value, prev_value)
+        policy_loss = -advantage * self._log_prob
+        entropy = distribution.entropy()
+        loss = value_loss + self._policy_discount * policy_loss + self._entropy_discount * entropy
 
-            advantage = reward + self._gamma * value - prev_value
-            value_loss = self._loss_mse(reward + self._gamma * value, prev_value)
-            policy_loss = -advantage * self._log_prob
-            entropy = distribution.entropy()
-            loss = value_loss + self._policy_discount * policy_loss + self._entropy_discount * entropy
-            loss.backward()
-            self._controller_optimizer.step()
+        self._prev_input = input.detach()
 
-            self._prev_input = input.detach()
-
-            # Get an action
-            action = distribution.sample()
-            self._log_prob = distribution.log_prob(action).detach()
-
-            policy_loss_item = policy_loss.item()
-            value_loss_item = value_loss.item()
-            entropy_item = entropy.item()
-        return action, policy_loss_item, value_loss_item, entropy_item
+        # Get an action
+        action = distribution.sample()
+        self._log_prob = distribution.log_prob(action).detach()

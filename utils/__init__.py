@@ -1,2 +1,3 @@
+from utils.experience_replay import OnPolicyExperienceReplay
 from utils.initialize_custom_model import initialize_custom_model
 from utils.shared_actor_critic import SharedActorCritic

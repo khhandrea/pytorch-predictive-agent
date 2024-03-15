@@ -28,6 +28,7 @@ if __name__ == '__main__':
     experiment = config['experiment']
     load_path = config['load_path']
     training_spec = config['training_spec']
+    network_spec = config['network_spec']
     formatted_time = datetime.now().strftime('%y%m%dT%H%M%S')
     experiment_name = f"{formatted_time}_{experiment['name']}"
     if training_spec['device'] != 'cpu':
@@ -55,9 +56,9 @@ if __name__ == '__main__':
     for network in networks[:-1]:
         global_networks[network] = initialize_custom_model(config['network_spec'][network]).to(device)
     global_networks['controller'] = SharedActorCritic(
-        shared_network=initialize_custom_model(config['network_spec']['controller_shared']),
-        actor_network=initialize_custom_model(config['network_spec']['controller_actor']),
-        critic_network=initialize_custom_model(config['network_spec']['controller_critic'])
+        shared_network=initialize_custom_model(network_spec['controller_shared']),
+        actor_network=initialize_custom_model(network_spec['controller_actor']),
+        critic_network=initialize_custom_model(network_spec['controller_critic'])
     ).to(device)
 
     # Load and share global networks
@@ -68,7 +69,7 @@ if __name__ == '__main__':
         global_networks[network].share_memory()
 
     # Multiprocessing
-    # mp.set_start_method('spawn')
+    mp.set_start_method('spawn')
     cpu_num = experiment['cpu_num']
     if cpu_num == 0:
         cpu_num = mp.cpu_count()
@@ -79,6 +80,7 @@ if __name__ == '__main__':
         'env_class': env_class,
         'env_args': config['environment'],
         'device': device,
+        'network_spec': network_spec,
         'hyperparameter': config['hyperparameter'],
         'queue': queue,
         'global_networks': global_networks,
