@@ -3,7 +3,7 @@ from typing import Any
 
 import numpy as np
 import torch
-from torch import nn, optim
+from torch import Tensor, optim
 from torch.nn import functional as F
 
 from controller_agent import ControllerAgent
@@ -11,9 +11,8 @@ from controller_agent import ControllerAgent
 class PredictiveAgent:
     def __init__(
         self, 
-        device: str,
+        device: torch.device,
         random_policy: bool,
-        batch_size: int,
         learning_rate: float,
         optimizer: str,
         inverse_loss_scale: float,
@@ -25,11 +24,6 @@ class PredictiveAgent:
         lmbda: float,
         intrinsic_reward_scale: float,
     ):
-        if device != 'cpu':
-            assert torch.cuda.is_available()
-        self._device = torch.device(device)
-        print(f"device: {self._device}")
-
         # self._action_space = action_space
         # self._observation_space = observation_space
         # self._path = path
@@ -116,9 +110,19 @@ class PredictiveAgent:
 
         return action
 
-    def train(self):
-        replay = self._replay.sample()
+    def train(
+        self,
+        batch: Tensor
+    ) -> dict[str, Any]:
+        data = {}
+        data['controller/entropy'] = 0
+        data['controller/policy_loss'] = 0
+        data['controller/value_loss'] = 0
+        data['icm/inverse_accuracy'] = 0
+        data['icm/predictor_loss'] = 0
 
+        return data
+        
         # Initialize optimizers
         self._optimizer.zero_grad()
 

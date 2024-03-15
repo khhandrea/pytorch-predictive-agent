@@ -17,6 +17,6 @@ class SharedActorCritic(nn.Module):
         x: Tensor
     ) -> tuple[Tensor, Tensor]:
         z = self._shared(x)
-        action = self._actor(z)
+        policy = self._actor(z)
         value = self._critic(z)
-        return action, value
+        return policy, value

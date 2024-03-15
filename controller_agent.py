@@ -3,8 +3,6 @@ import torch
 from torch.distributions.categorical import Categorical
 from torch import nn, optim, Tensor, tensor
 
-from utils import makedir_and_save_module, get_load_path
-
 class ControllerAgent:
     def __init__(self,
                  feature_size: int,
@@ -73,14 +71,3 @@ class ControllerAgent:
             value_loss_item = value_loss.item()
             entropy_item = entropy.item()
         return action, policy_loss_item, value_loss_item, entropy_item
-    
-    def save(self, description: str):
-        makedir_and_save_module(
-            self._controller.state_dict(),
-            self._path,
-            'controller-network',
-            description)
-        
-    def load(self, path: str):
-        self._controller.load_state_dict(
-            torch.load(get_load_path(path, 'controller-network')))
