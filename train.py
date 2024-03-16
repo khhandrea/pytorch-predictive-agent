@@ -21,8 +21,9 @@ def train(
     replay = OnPolicyExperienceReplay()
 
     observation, _ = env.reset()
-    terminated = truncated = False
     
+    agent.sync_network()
+    terminated = truncated = False
     batch_step = 1
     extrinsic_return = 0
     while not (terminated or truncated):

@@ -10,9 +10,8 @@ from torch import multiprocessing as mp
 from torch.utils.tensorboard import SummaryWriter
 
 from environments import MovingImageEnvironment
-from trainer import train
-from utils import initialize_custom_model
-from utils import SharedActorCritic
+from train import train
+from utils import CustomModule, SharedActorCritic
 
 if __name__ == '__main__':
     # Configuration
@@ -54,11 +53,11 @@ if __name__ == '__main__':
     )
     global_networks = {}
     for network in networks[:-1]:
-        global_networks[network] = initialize_custom_model(config['network_spec'][network]).to(device)
+        global_networks[network] = CustomModule(config['network_spec'][network]).to(device)
     global_networks['controller'] = SharedActorCritic(
-        shared_network=initialize_custom_model(network_spec['controller_shared']),
-        actor_network=initialize_custom_model(network_spec['controller_actor']),
-        critic_network=initialize_custom_model(network_spec['controller_critic'])
+        shared_network=CustomModule(network_spec['controller_shared']),
+        actor_network=CustomModule(network_spec['controller_actor']),
+        critic_network=CustomModule(network_spec['controller_critic'])
     ).to(device)
 
     # Load and share global networks

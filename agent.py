@@ -7,8 +7,7 @@ from torch import nn, Tensor, tensor, optim
 from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 
-from utils import initialize_custom_model
-from utils import SharedActorCritic
+from utils import CustomModule, SharedActorCritic
 
 class PredictiveAgent:
     def __init__(
@@ -50,7 +49,7 @@ class PredictiveAgent:
         self._intrinsic_reward_scale = intrinsic_reward_scale
 
         # Initialize global and local networks
-        networks = (
+        self._networks = (
             'feature_extractor',
             'inverse_network',
             'inner_state_predictor',
@@ -58,23 +57,23 @@ class PredictiveAgent:
             'controller'
         )
         self._global_networks = global_networks
-        local_networks = {}
-        for network in networks[:-1]:
-            local_networks[network] = initialize_custom_model(network_spec[network]).to(device)
-        local_networks['controller'] = SharedActorCritic(
-            shared_network=initialize_custom_model(network_spec['controller_shared']),
-            actor_network=initialize_custom_model(network_spec['controller_actor']),
-            critic_network=initialize_custom_model(network_spec['controller_critic'])
+        self._local_networks = {}
+        for network in self._networks[:-1]:
+            self._local_networks[network] = CustomModule(network_spec[network]).to(device)
+        self._local_networks['controller'] = SharedActorCritic(
+            shared_network=CustomModule(network_spec['controller_shared']),
+            actor_network=CustomModule(network_spec['controller_actor']),
+            critic_network=CustomModule(network_spec['controller_critic'])
         ).to(device)
 
         # Loss functions and an optimizer
         self._loss_ce = nn.CrossEntropyLoss()
         self._loss_mse = nn.MSELoss()
-        models = chain(self._global_networks[network].parameters for network in networks)
+        models = chain(*[self._global_networks[network].parameters() for network in self._networks])
         self._optimizer = optimizer(models, lr=learning_rate)
 
         # Initialize prev data
-        self._prev_action = tensor.zeros(1, self._action_space.n).to(device)
+        self._prev_action = torch.zeros(1, self._action_space.n).to(device)
         _, self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 256))
 
         # Initialize batch_prev data
@@ -93,70 +92,91 @@ class PredictiveAgent:
             observation = observation.astype(float) / (self._observation_space.high - self._observation_space.low) + self._observation_space.low
             observation = torch.from_numpy(observation).float().to(self._device).unsqueeze(0)
 
-            # Inference with inverse module
+            # Feature extractor
             feature = self._local_networks['feature_extractor'](observation)
-
-            # Inference with inner state predictor
+            # Inner state predictor
             action_feature = torch.cat((self._prev_action, feature.detach()), 1)
             inner_state, self._prev_inner_state = self._inner_state_predictor(action_feature, self._prev_inner_state)
-
             # Controller
             policy, _ = self._local_networks['controller'](inner_state)
             distribution = Categorical(probs=policy)
             action = distribution.sample()
             
-            # Update
             self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float() # .to(self._device)
-
         return action
+
+    def sync_network(self) -> None:
+        for network in self._networks:
+            self._local_networks[network].load_state_dict(self._global_networks[network].state_dict())
 
     def train(
         self,
         batch: dict[str, Tensor]
     ) -> dict[str, float]:
-        data = {}
-        data['controller/entropy'] = 0.
-        data['controller/policy_loss'] = 0.
-        data['controller/value_loss'] = 0.
-        data['icm/inverse_accuracy'] = 0.
-        data['icm/predictor_loss'] = 0.
-
-        return data
-        
         # Initialize optimizers
         self._optimizer.zero_grad()
 
-        # Inference with inverse module
-        prev_feature = self._feature_extractor(self._prev_observation)
-        feature = self._feature_extractor(observation)
-        concatenated_feature = torch.cat((prev_feature, feature), 1)
-        pred_prev_action = self._inverse_network(concatenated_feature)
+        # Preprocessing
+        observations = batch['observations']
+        observations = observations / 255
 
-        self._prev_observation = observation
+        # From t-1 to T
+        observations = torch.cat((self._batch_prev_observation, observations), dim=0)
+        # From t-2 to T
+        actions = torch.cat((self._batch_prev_actions, batch['actions']), dim=0)
+        actions = F.one_hot(actions.to(torch.int64), num_classes=self._action_space.n).float()
 
-        # Inference with feature predictor
-        inner_state_action = torch.cat((self._inner_state, self._prev_action), 1)
-        pred_feature = self._feature_predictor(inner_state_action)
+        # Inverse loss
+        features = self._local_networks['feature_extractor'](observations)
+        concatenated_features = torch.cat((features[:-1], features[1:]), dim=1)
+        pred_actions = self._local_networks['inverse_network'](concatenated_features)
+        inverse_loss = self._loss_ce(actions[1:-1], pred_actions)
 
+        # Predictor loss
+        inner_states, _ = self._local_networks['inner_state_predictor'](
+            torch.cat((features.detach(), actions[:-1].detach()), dim=1),
+            self._batch_prev_inner_state
+        )
+        inner_states_actions = torch.cat((inner_states[:-1].detach(), actions[1:-1].detach()), dim=1)
+        pred_features = self._local_networks['feature_predictor'](inner_states_actions)
+        predictor_loss = self._loss_mse(features[1:].detach(), pred_features)
 
-        # Inference with inner state predictor
-        action_feature = torch.cat((self._prev_action, feature.detach()), 1)
-        self._inner_state = self._inner_state_predictor(action_feature)
+        # Controller loss
+        if self._random_policy:
+            policy_loss = tensor(0.)
+            value_loss = tensor(0.)
+            entropy = tensor(0.)
+        else:
+            # reward = extrinsic_reward + self._intrinsic_reward_scale * intrinsic_reward
+            policies, v_preds = self._local_networks['controller'](inner_states[1:].detach())
+            distributions = Categorical(probs=policies)
+            log_probs = distributions.log_prob(actions[2:].detach())
+            entropy = distributions.entropy()
+            policy_loss = -(gaes * log_probs).mean()
+            value_loss = self._loss_mse(v_targets, v_preds)
+        controller_loss = self._policy_loss_scale * policy_loss\
+            + self._value_loss_scale * value_loss\
+            + self._entropy_scale * entropy.mean().item()
 
-        # Controller
-        action, policy_loss_item, value_loss_item, entropy_item = self._controller_agent.get_action_and_update(self._inner_state.detach(), reward)
-        self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float().to(self._device)
-
-        # Update modules
-        inverse_loss = self._loss_ce(pred_prev_action, self._prev_action)
-        predictor_loss = self._loss_mse(feature.detach(), pred_feature)
-        total_loss = inverse_loss + self._predictor_loss_discount * predictor_loss
-        total_loss.backward()
+        # Total loss
+        loss = self._inverse_loss_scale * inverse_loss\
+            + self._predictor_loss_scale * predictor_loss\
+            + controller_loss
+        loss.backward()
+        for network in self._networks:
+            for global_param, local_param in zip(self._global_networks[network].parameters(), self._local_networks[network].parameters()):
+                global_param._grad = local_param.grad
         self._optimizer.step()
+        self.sync_network()
 
-        # Update values
-        correct = torch.argmax(pred_prev_action).item() == torch.argmax(self._prev_action).item()
-        inverse_loss_item = inverse_loss.item()
-        predictor_loss_item = predictor_loss.item()
-        intrinsic_reward = self._intrinsic_reward_discount * predictor_loss_item
-        reward = extrinsic_reward + intrinsic_reward
+        inverse_is_correct = torch.argmax(pred_actions, dim=1) == torch.argmax(actions[1:-1], dim=1)
+        inverse_accuracy = inverse_is_correct.sum() / len(inverse_is_correct)
+
+        data = {}
+        data['controller/entropy'] = entropy.item()
+        data['controller/policy_loss'] = policy_loss.item()
+        data['controller/value_loss'] = value_loss.item()
+        data['icm/inverse_accuracy'] = inverse_accuracy.item()
+        data['icm/predictor_loss'] = predictor_loss.item()
+
+        return data
