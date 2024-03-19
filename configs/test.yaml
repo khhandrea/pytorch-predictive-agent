@@ -1,75 +1,116 @@
-# name: A name of the experiment
-# description: A description of the experiment. It is not used in the program
-#
-# load: Load the networks’ parameters from the entire path. Format: (environment)/(description)/(step)
-# load_inverse: Load feature extractor inverse network parameters from the specific file. Format: (environment)/(description)/(step)
-# load_predictor: Load predictor network parameters from the specific file. Format: (environment)/(description)/(step)
-# load_controller: Load controller network parameters from the specific file. Format: (environment)/(description)/(step)
-#
-# device: The program uses the cpu in purpose
-# visualize: The window is showed
-# skip_log: The log won't be written
-# skip_save: The model won’t be saved
-# save_interval: Per how many steps to save the model
-#
-# step_max: Max step of one episode
-# progress_interval: Per how many steps to print the progress
-# agent_speed: Set the agent's moving speed
-# random_policy: The agent chooses a random action
-#
-# feature_extractor_inverse_lr
-# predictor_lr
-# controller_lr
-# policy_discount
-# entropy_discount
-# intrinsic_reward_discount
-# gamma
-#
-# feature_size
-# hidden_state_size
-# feature_extractor_module
-# inverse_module
-# feature_predictor_module
-# inner_state_predictor_module
-# controller_module
+experiment:
+  name: test-v2
+  description: test-v2
+  save_log: False
+  save_checkpoints: False
+  save_interval: 1000
+  progress_interval: 500
+  cpu_num: 1 # mp.cpu_count() if 0
 
-name: test
-description: test # Not used
+environment:
+  render_mode: none
+  step_max: 10000
+  agent_speed: 10
+  noise_scale: 3.0
 
-load: None
-load_feature_extractor: None
-load_inverse: None
-load_inner_state_predictor: None
-load_feature_predictor: None
-load_controller: None
+load_path:
+  feature_extractor: False
+  inverse_network: False
+  inner_state_predictor: False
+  feature_predictor: False
+  controller: False
 
-device: cuda
-visualize: False
-skip_log: True
-skip_save: True
-save_interval: 1000
+training_spec:
+  device: cuda
+  batch_size: 128
 
-step_max: 5000
-progress_interval: 1000
-inverse_accuracy_batch_size: 1000 # = progress_interval if 0
-agent_speed: 10
-random_policy: False
-noise_scale: 3.0
+hyperparameter:
+  random_policy: True
+  optimizer: sgd
+  learning_rate: 0.001
+  inverse_loss_scale: 0.8
+  predictor_loss_scale: 0.2
+  value_loss_scale: 0.8
+  policy_loss_scale: 0.2
+  entropy_scale: 0.0
+  gamma: 0.99
+  lmbda: 0.95
+  intrinsic_reward_scale: 0.5
 
-inverse_module_predictor_lr: 1e-3
-inverse_module_predictor_optimizer: sgd
-controller_lr: 1e-4
-controller_optimizer: sgd
-policy_discount: 0.2
-entropy_discount: 0.0
-intrinsic_reward_discount: 0.5
-predictor_loss_discount: 0.25
-gamma: 0.99
+network_spec:
+  feature_extractor:
+    initialization: True
+    layers:
+      # 3 x 64 x 64
+      - layer: conv2d 
+        spec: [3, 32, 3, 2, 1]
+        activation: elu
+        # 32 x 32 x 32
+      - layer: conv2d
+        spec: [32, 32, 3, 2, 1]
+        activation: elu
+        # 32 x 16 x 16
+      - layer: conv2d
+        spec: [32, 32, 3, 2, 1]
+        activation: elu
+        # 32 x 8 x 8 
+      - layer: conv2d
+        spec: [32, 16, 3, 2, 1]
+        activation: elu
+        # 16 x 4 x 4 (= 256)
+      - layer: flatten
 
-feature_size: 256
-hidden_state_size: 256
-feature_extractor_module: DefaultCNNFeatureExtractor
-inverse_module: CuriosityLinearInverseModule
-feature_predictor_module: CuriosityLinearFeaturePredictor
-inner_state_predictor_module: DefaultLSTMInnerStatePredictor
-controller_module: DefaultDiscreteLinearActorCritic
+  inverse_network:
+    initialization: True
+    layers:
+      - layer: linear
+        spec: [512, 256]
+        activation: relu
+      - layer: linear
+        spec: [256, 4]
+        activation: softmax
+
+  inner_state_predictor:
+    initialization: True
+    layers:
+      - layer: gru
+        spec: [260, 256, 1] # 4 + 256
+        activation: elu
+
+  feature_predictor:
+    initialization: True
+    layers:
+      - layer: linear
+        spec: [260, 256] # 4 + 256
+        activation: elu
+      - layer: linear
+        spec: [256, 256]
+        activation: elu
+
+  controller_shared:
+    initialization: True
+    layers:
+      - layer: linear
+        spec: [256, 128]
+        activation: relu
+      - layer: linear
+        spec: [128, 64]
+        activation: relu
+  controller_actor:
+    initialization: True
+    layers:
+      - layer: linear
+        spec: [64, 64]
+        activation: relu
+      - layer: linear
+        spec: [64, 4]
+        activation: softmax
+  controller_critic:
+    initialization: True
+    layers:
+      - layer: linear
+        spec: [64, 64]
+        activation: relu
+      - layer: linear
+        spec: [64, 1]
+        activation: False
