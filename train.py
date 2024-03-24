@@ -1,24 +1,24 @@
 from typing import Any
 
-from torch import nn, device, set_default_device
+from torch import nn, device
 from torch import multiprocessing as mp
 
 from agent import PredictiveAgent
 from utils import OnPolicyExperienceReplay
 
 def train(
+    index: int, # default process index argument in mp.spawn
     env_class: type,
     env_args: dict[str, Any],
     device: device,
     network_spec: dict[str, Any],
-    hyperparameter: dict[str, float],
+    hyperparameters: dict[str, float],
     queue: mp.Queue,
     global_networks: dict[str, nn.Module],
     batch_size: int
 ):
-    set_default_device(device)
     env = env_class(**env_args)
-    agent = PredictiveAgent(env, network_spec, global_networks, **hyperparameter)
+    agent = PredictiveAgent(env, device, network_spec, global_networks, hyperparameters)
     replay = OnPolicyExperienceReplay()
 
     observation, _ = env.reset()
@@ -35,7 +35,6 @@ def train(
         observation = next_observation
 
         if batch_step == batch_size:
-            print('train at step', batch_step)
             batch = replay.sample()
             batch_result = agent.train(batch)
             batch_result['reward/extrinsic_return'] = extrinsic_return

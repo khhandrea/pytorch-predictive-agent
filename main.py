@@ -3,12 +3,12 @@ from datetime import datetime
 import os
 from shutil import copy
 from time import sleep
-from traceback import print_exc
 from yaml import full_load
 
 import torch
 from torch import nn
-from torch import set_default_device, multiprocessing as mp
+from torch import multiprocessing as mp
+from torch.multiprocessing import spawn
 from torch.utils.tensorboard import SummaryWriter
 
 from environments import MovingImageEnvironment
@@ -41,6 +41,17 @@ def save_module(
         os.path.join(directory, file_name)
     )
 
+class LogFormatter:
+    def __init__(self, progress_contents: tuple[str]):
+        self._progress_contents = progress_contents
+        print('iteration |', ' | '.join(self._progress_contents))
+
+    def print(self, step: int, data: dict[str, float]) -> None:
+        print(
+            f'iteration-{step:>8} |',
+            ' | '.join(f'{data[content]:>10.2f}' for content in self._progress_contents)
+        )
+
 def main() -> None:
     config_path = get_config_path()
     config = get_configuration(config_path)
@@ -72,7 +83,6 @@ def main() -> None:
     if training_spec['device'] != 'cpu':
         assert torch.cuda.is_available()
     device = torch.device(training_spec['device'])
-    set_default_device(device)
     print("Device:", device)
 
     # Initialize global network
@@ -85,18 +95,17 @@ def main() -> None:
     )
     global_networks = {}
     for network in networks[:-1]:
-        global_networks[network] = CustomModule(config['network_spec'][network])
-        global_networks[network] = global_networks[network]
+        global_networks[network] = CustomModule(config['network_spec'][network]).to(device)
     global_networks['controller'] = SharedActorCritic(
         shared_network=CustomModule(network_spec['controller_shared']),
         actor_network=CustomModule(network_spec['controller_actor']),
         critic_network=CustomModule(network_spec['controller_critic'])
-    )
+    ).to(device)
 
     # Load and share global networks
     for network in networks:
         if load_path[network]:
-            global_networks[network].load_state_dict(torch.load(load_path[network]))
+            global_networks[network].load_state_dict(torch.load(load_path[network]), map_location=device)
             print(f'load {network} from {load_path[network]}')
         global_networks[network].share_memory()
 
@@ -104,21 +113,23 @@ def main() -> None:
     env_class = MovingImageEnvironment
     env_name = env_class.__name__
     queue = mp.Queue()
-    trainer_args = {
-        'env_class': env_class,
-        'env_args': config['environment'],
-        'device': device,
-        'network_spec': network_spec,
-        'hyperparameter': config['hyperparameter'],
-        'queue': queue,
-        'global_networks': global_networks,
-        'batch_size': training_spec['batch_size']
-    }
-    processes = []
-    for _ in range(cpu_num):
-        process = mp.Process(target=train, kwargs=trainer_args)
-        process.start()
-        processes.append(process)
+    trainer_args = (
+        env_class,
+        config['environment'],
+        device,
+        network_spec,
+        config['hyperparameter'],
+        queue,
+        global_networks,
+        training_spec['batch_size']
+    )
+    mp_context = spawn(
+        fn=train,
+        args=trainer_args,
+        nprocs=cpu_num,
+        daemon=True,
+        join=False
+    )
 
     # Receiving data
     progress_contents = (
@@ -129,9 +140,9 @@ def main() -> None:
         'controller/policy_loss',
         'controller/value_loss',
     )
-    print('iteration |', ' | '.join(progress_contents))
+    log_formatter = LogFormatter(progress_contents)
     iteration = 1
-    while any(process.is_alive() for process in processes) or not queue.empty():
+    while any(process.is_alive() for process in mp_context.processes) or not queue.empty():
         if not queue.empty():
             data = queue.get()
             iteration += 1
@@ -143,10 +154,7 @@ def main() -> None:
 
             # Print progress
             if iteration % experiment['progress_interval'] == 0:
-                print(
-                    f'iteration-{iteration:>8} |',
-                    ' | '.join(f'{data[content]:>10.2f}' for content in progress_contents)
-                )
+                log_formatter.print(data)
 
             # Save checkpoints
             if experiment['save_checkpoints'] and iteration % experiment['save_interval']:
@@ -154,18 +162,10 @@ def main() -> None:
                     save_path = os.path.join('checkpoints', env_name, experiment_name, network)
                     file_name = os.path.join(f'step-{iteration}.pt')
                     save_module(global_networks[network], save_path, file_name)
-                    
         else:
-            try:
-                sleep(0.1)
-            except (Exception, KeyboardInterrupt):
-                for process in processes:
-                    process.kill()
-                print('Program is killed unintentionally:')
-                print_exc()
+            sleep(0.1)
 
-    for process in processes:
-        process.join()
+    mp_context.join()
     if experiment['save_log']:
         log_writer.close()
 

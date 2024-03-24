@@ -21,7 +21,7 @@ load_path:
   controller: False
 
 training_spec:
-  device: cuda
+  device: cpu
   batch_size: 128
 
 hyperparameter:

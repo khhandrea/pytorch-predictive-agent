@@ -1,5 +1,4 @@
 from itertools import chain
-from typing import Any
 
 import numpy as np
 import torch
@@ -9,44 +8,32 @@ from torch.nn import functional as F
 
 from utils import CustomModule, SharedActorCritic
 
+def initialize_optimizer(
+    optimizer_name: str,
+    params,
+    learning_rate: float
+) -> torch.optim:
+    match optimizer_name:
+        case 'sgd':
+            optimizer = optim.SGD
+        case 'adam':
+            optimizer = optim.Adam
+        case _:
+            raise Exception(f'Invalid optimizer: {optimizer}')
+    return optimizer(params, lr=learning_rate)
+
+
 class PredictiveAgent:
     def __init__(
         self, 
         env,
-        network_spec: dict[str, Any],
+        device: torch.device,
+        network_spec: dict[str, dict],
         global_networks: dict[str, nn.Module],
-        random_policy: bool,
-        learning_rate: float,
-        optimizer: str,
-        inverse_loss_scale: float,
-        predictor_loss_scale: float,
-        value_loss_scale: float,
-        policy_loss_scale: float,
-        entropy_scale: float,
-        gamma: float,
-        lmbda: float,
-        intrinsic_reward_scale: float,
+        hyperparameters: dict[str, float],
     ):
-        self._random_policy = random_policy
+        self._device = device
         self._action_space = env.action_space
-
-        # Optimizer
-        if optimizer == 'adam':
-            optimizer = optim.Adam
-        elif optimizer == 'sgd':
-            optimizer = optim.SGD
-        else:
-            raise Exception(f'Invalid optimizer: {optimizer}')
-
-        # Hyperparameters
-        self._inverse_loss_scale = inverse_loss_scale
-        self._predictor_loss_scale = predictor_loss_scale
-        self._value_loss_scale = value_loss_scale
-        self._policy_loss_scale = policy_loss_scale
-        self._entropy_scale = entropy_scale
-        self._gamma = gamma
-        self._lmbda = lmbda
-        self._intrinsic_reward_scale = intrinsic_reward_scale
 
         # Initialize local networks
         self._networks = (
@@ -59,28 +46,43 @@ class PredictiveAgent:
         self._global_networks = global_networks
         self._local_networks = {}
         for network in self._networks[:-1]:
-            print('local networks for', network)
             self._local_networks[network] = CustomModule(network_spec[network])
+            self._local_networks[network] = self._local_networks[network].to(self._device)
         self._local_networks['controller'] = SharedActorCritic(
             shared_network=CustomModule(network_spec['controller_shared']),
             actor_network=CustomModule(network_spec['controller_actor']),
             critic_network=CustomModule(network_spec['controller_critic'])
-        )
+        ).to(self._device)
 
-        # Loss functions and an optimizer
+        # Hyperparameters
+        models = chain(*[self._global_networks[network].parameters() for network in self._networks])
+        self._optimizer = initialize_optimizer(
+            hyperparameters['optimizer'],
+            models,
+            hyperparameters['learning_rate']
+        )
+        self._random_policy = hyperparameters['random_policy']
+        self._inverse_loss_scale = hyperparameters['inverse_loss_scale']
+        self._predictor_loss_scale = hyperparameters['predictor_loss_scale']
+        self._value_loss_scale = hyperparameters['value_loss_scale']
+        self._policy_loss_scale = hyperparameters['policy_loss_scale']
+        self._entropy_scale = hyperparameters['entropy_scale']
+        self._gamma = hyperparameters['gamma']
+        self._lmbda = hyperparameters['lmbda']
+        self._intrinsic_reward_scale = hyperparameters['intrinsic_reward_scale']
+
+        # Loss functions
         self._loss_ce = nn.CrossEntropyLoss()
         self._loss_mse = nn.MSELoss()
-        models = chain(*[self._global_networks[network].parameters() for network in self._networks])
-        self._optimizer = optimizer(models, lr=learning_rate)
 
         # Initialize prev data
-        self._prev_action = torch.zeros(1, self._action_space.n)
-        _, self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
+        self._prev_action = torch.zeros(1, self._action_space.n).to(self._device)
+        self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
 
         # Initialize batch_prev data
         self._batch_prev_observation = torch.zeros((1, 3, 64, 64))
         self._batch_prev_actions = torch.zeros(2)
-        _, self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
+        self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
 
     def get_action(
         self, 
@@ -103,7 +105,7 @@ class PredictiveAgent:
             distribution = Categorical(probs=policy)
             action = distribution.sample()
             
-            self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float()
+            self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float().to(self._device)
         return action
 
     def sync_network(self) -> None:
@@ -131,13 +133,13 @@ class PredictiveAgent:
         features = self._local_networks['feature_extractor'](observations)
         concatenated_features = torch.cat((features[:-1], features[1:]), dim=1)
         pred_actions = self._local_networks['inverse_network'](concatenated_features)
-        print('pred_action', pred_actions[64])
         inverse_loss = self._loss_ce(actions[1:-1], pred_actions)
+        print(torch.argmax(pred_actions, dim=1).tolist())
 
         # Predictor loss
         detached_features = features.detach()
         detached_actions = actions.detach()
-        inner_states, _ = self._local_networks['inner_state_predictor'](
+        inner_states = self._local_networks['inner_state_predictor'](
             torch.cat((detached_features, detached_actions[:-1]), dim=1),
             self._batch_prev_inner_state
         )
@@ -159,14 +161,18 @@ class PredictiveAgent:
             entropy = distributions.entropy().mean()
             policy_loss = -(gaes * log_probs).mean()
             value_loss = self._loss_mse(v_targets, v_preds)
-        controller_loss = self._policy_loss_scale * policy_loss\
-            + self._value_loss_scale * value_loss\
+        controller_loss = (
+            self._policy_loss_scale * policy_loss
+            + self._value_loss_scale * value_loss
             + self._entropy_scale * entropy
+        )
 
         # Total loss
-        loss = self._inverse_loss_scale * inverse_loss\
-            + self._predictor_loss_scale * predictor_loss\
+        loss = (
+            self._inverse_loss_scale * inverse_loss
+            + self._predictor_loss_scale * predictor_loss
             + controller_loss
+        )
         loss.backward()
         for network in self._networks:
             for global_param, local_param in zip(self._global_networks[network].parameters(), self._local_networks[network].parameters()):
@@ -174,9 +180,11 @@ class PredictiveAgent:
         self._optimizer.step()
         self.sync_network()
         
+        # Update memory
         self._batch_prev_observation = observations[-1].detach().unsqueeze(dim=0)
         self._batch_prev_actions = torch.argmax(actions[-2:], dim=1).detach()
 
+        # Process and return data
         inverse_is_correct = torch.argmax(pred_actions, dim=1) == torch.argmax(actions[1:-1], dim=1)
         inverse_accuracy = inverse_is_correct.sum() / len(inverse_is_correct)
 
