@@ -5,22 +5,22 @@ from shutil import copy
 from time import sleep
 from yaml import full_load
 
-import torch
-from torch import nn
-from torch import multiprocessing as mp
+from torch import load, multiprocessing as mp
 from torch.multiprocessing import spawn
 from torch.utils.tensorboard import SummaryWriter
 
 from environments import MovingImageEnvironment
 from train import train
-from utils import CustomModule, SharedActorCritic
+from utils import CustomModule, ProgressFormatter, SharedActorCritic
+from utils import save_module
 
 def get_config_path() -> str:
-    argument_parser = ArgumentParser(
-        prog="Predictive navigation agent RL framework",
-        description="RL agent with predictive module"
-    )
-    argument_parser.add_argument('--config', required=True, default='configs/test.yaml', help="A configuration file path")
+    argument_parser = ArgumentParser(prog="Predictive navigation agent RL framework",
+                                     description="RL agent with predictive module")
+    argument_parser.add_argument('--config', 
+                                 required=True,
+                                 default='configs/test.yaml',
+                                 help="A configuration file path")
     config_path = argument_parser.parse_args().config
     return config_path
 
@@ -28,37 +28,6 @@ def get_configuration(config_path: str) -> dict:
     with open(config_path) as f:
         config = full_load(f)
     return config
-
-def save_module(
-    module: nn.Module,
-    directory: str,
-    file_name: str
-) -> None:
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-    torch.save(
-        module.state_dict(),
-        os.path.join(directory, file_name)
-    )
-
-class ProgressFormatter:
-    def __init__(self):
-        self._is_first = True
-
-    def print(self, data: dict[str, float]) -> None:
-        if self._is_first:
-            print(' | '.join(content for content in data))
-            self._is_first = False
-        
-        contents = []
-        for content in data:
-            if isinstance(data[content], float):
-                contents.append(f'{data[content]:>{len(content)}.2f}')
-            elif isinstance(data[content], int):
-                contents.append(f'{data[content]:>{len(content)}d}')
-            else:
-                contents.append(f'{data[content]:>{len(content)}}')
-        print(' | '.join(contents))
 
 def main() -> None:
     config_path = get_config_path()
@@ -87,13 +56,11 @@ def main() -> None:
     print('Subrocess num:', cpu_num)
     
     # Initialize global network
-    networks = (
-        'feature_extractor',
-        'inverse_network',
-        'inner_state_predictor',
-        'feature_predictor',
-        'controller'
-    )
+    networks = ('feature_extractor',
+                'inverse_network',
+                'inner_state_predictor',
+                'feature_predictor',
+                'controller')
     global_networks = {}
     for network in networks[:-1]:
         global_networks[network] = CustomModule(config['network_spec'][network])
@@ -106,7 +73,7 @@ def main() -> None:
     # Load and share global networks
     for network in networks:
         if load_path[network]:
-            global_networks[network].load_state_dict(torch.load(load_path[network]))
+            global_networks[network].load_state_dict(load(load_path[network]))
             print(f'load {network} from {load_path[network]}')
         global_networks[network].share_memory()
 
@@ -114,21 +81,17 @@ def main() -> None:
     env_class = MovingImageEnvironment
     env_name = env_class.__name__
     queue = mp.Queue()
-    trainer_args = (
-        env_class,
-        config['environment'],
-        network_spec,
-        config['hyperparameter'],
-        queue,
-        global_networks,
-    )
-    mp_context = spawn(
-        fn=train,
-        args=trainer_args,
-        nprocs=cpu_num,
-        daemon=True,
-        join=False
-    )
+    trainer_args = (env_class,
+                    config['environment'],
+                    network_spec,
+                    config['hyperparameter'],
+                    queue,
+                    global_networks)
+    mp_context = spawn(fn=train,
+                       args=trainer_args,
+                       nprocs=cpu_num,
+                       daemon=True,
+                       join=False)
     print('Spawn complete')
 
     # Receiving data
@@ -152,9 +115,9 @@ def main() -> None:
             # Save checkpoints
             if experiment['save_checkpoints'] and iteration % experiment['save_interval']:
                 for network in networks:
-                    save_path = os.path.join('checkpoints', env_name, experiment_name, network)
+                    save_dir = os.path.join('checkpoints', env_name, experiment_name, network)
                     file_name = os.path.join(f'step-{iteration}.pt')
-                    save_module(global_networks[network], save_path, file_name)
+                    save_module(global_networks[network], save_dir, file_name)
         else:
             sleep(0.1)
 
