@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch import Tensor, tensor
 
 class OnPolicyExperienceReplay():
@@ -28,7 +29,10 @@ class OnPolicyExperienceReplay():
         batch = {}
         for key in self._keys:
             if key == 'dones':
-                setattr(self, key, np.array((getattr(self, key)), dtype=np.float32))
-            batch[key] = tensor(np.array(getattr(self, key)))
+                batch['done'] = np.array(self.dones, dtype=np.float32)
+            elif key == 'actions':
+                batch['actions'] = tensor(np.array(self.actions), dtype=torch.int64)
+            else:
+                batch[key] = tensor(np.array(getattr(self, key)), dtype=torch.float32)
         self._reset()
         return batch

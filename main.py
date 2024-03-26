@@ -41,16 +41,24 @@ def save_module(
         os.path.join(directory, file_name)
     )
 
-class LogFormatter:
-    def __init__(self, progress_contents: tuple[str]):
-        self._progress_contents = progress_contents
-        print('iteration |', ' | '.join(self._progress_contents))
+class ProgressFormatter:
+    def __init__(self):
+        self._is_first = True
 
-    def print(self, step: int, data: dict[str, float]) -> None:
-        print(
-            f'iteration-{step:>8} |',
-            ' | '.join(f'{data[content]:>10.2f}' for content in self._progress_contents)
-        )
+    def print(self, data: dict[str, float]) -> None:
+        if self._is_first:
+            print(' | '.join(content for content in data))
+            self._is_first = False
+        
+        contents = []
+        for content in data:
+            if isinstance(data[content], float):
+                contents.append(f'{data[content]:>{len(content)}.2f}')
+            elif isinstance(data[content], int):
+                contents.append(f'{data[content]:>{len(content)}d}')
+            else:
+                contents.append(f'{data[content]:>{len(content)}}')
+        print(' | '.join(contents))
 
 def main() -> None:
     config_path = get_config_path()
@@ -58,7 +66,6 @@ def main() -> None:
 
     experiment = config['experiment']
     load_path = config['load_path']
-    training_spec = config['training_spec']
     network_spec = config['network_spec']
 
     formatted_time = datetime.now().strftime("%y%m%dT%H%M%S")
@@ -79,12 +86,6 @@ def main() -> None:
         cpu_num = mp.cpu_count()
     print('Subrocess num:', cpu_num)
     
-    # Device configuration
-    if training_spec['device'] != 'cpu':
-        assert torch.cuda.is_available()
-    device = torch.device(training_spec['device'])
-    print("Device:", device)
-
     # Initialize global network
     networks = (
         'feature_extractor',
@@ -95,17 +96,17 @@ def main() -> None:
     )
     global_networks = {}
     for network in networks[:-1]:
-        global_networks[network] = CustomModule(config['network_spec'][network]).to(device)
+        global_networks[network] = CustomModule(config['network_spec'][network])
     global_networks['controller'] = SharedActorCritic(
         shared_network=CustomModule(network_spec['controller_shared']),
         actor_network=CustomModule(network_spec['controller_actor']),
         critic_network=CustomModule(network_spec['controller_critic'])
-    ).to(device)
+    )
 
     # Load and share global networks
     for network in networks:
         if load_path[network]:
-            global_networks[network].load_state_dict(torch.load(load_path[network]), map_location=device)
+            global_networks[network].load_state_dict(torch.load(load_path[network]))
             print(f'load {network} from {load_path[network]}')
         global_networks[network].share_memory()
 
@@ -116,12 +117,10 @@ def main() -> None:
     trainer_args = (
         env_class,
         config['environment'],
-        device,
         network_spec,
         config['hyperparameter'],
         queue,
         global_networks,
-        training_spec['batch_size']
     )
     mp_context = spawn(
         fn=train,
@@ -130,17 +129,10 @@ def main() -> None:
         daemon=True,
         join=False
     )
+    print('Spawn complete')
 
     # Receiving data
-    progress_contents = (
-        'icm/inverse_accuracy',
-        'icm/predictor_loss',
-        'reward/extrinsic_return',
-        'controller/entropy',
-        'controller/policy_loss',
-        'controller/value_loss',
-    )
-    log_formatter = LogFormatter(progress_contents)
+    progress = ProgressFormatter()
     iteration = 1
     while any(process.is_alive() for process in mp_context.processes) or not queue.empty():
         if not queue.empty():
@@ -154,7 +146,8 @@ def main() -> None:
 
             # Print progress
             if iteration % experiment['progress_interval'] == 0:
-                log_formatter.print(data)
+                data['iteration'] = iteration
+                progress.print(data)
 
             # Save checkpoints
             if experiment['save_checkpoints'] and iteration % experiment['save_interval']:
