@@ -4,8 +4,8 @@ experiment:
   save_log: False
   save_checkpoints: False
   save_interval: 1000
-  progress_interval: 500
-  cpu_num: 1 # mp.cpu_count() if 0
+  progress_interval: 50
+  cpu_num: 2
 
 environment:
   render_mode: none
@@ -20,14 +20,12 @@ load_path:
   feature_predictor: False
   controller: False
 
-training_spec:
-  device: cpu
-  batch_size: 128
-
 hyperparameter:
+  batch_size: 128
   random_policy: True
   optimizer: sgd
-  learning_rate: 0.001
+  gradient_clipping: -1
+  learning_rate: 1.0e-4
   inverse_loss_scale: 0.8
   predictor_loss_scale: 0.2
   value_loss_scale: 0.8

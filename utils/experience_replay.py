@@ -13,13 +13,12 @@ class OnPolicyExperienceReplay():
             setattr(self, k, [])
         self.size = 0
 
-    def add_experience(
-            self, 
-            observation: np.ndarray,
-            action: int,
-            extrinsic_reward: float,
-            done: bool
-        ) -> None:
+    def add_experience(self, 
+                       observation: np.ndarray,
+                       action: int,
+                       extrinsic_reward: float,
+                       done: bool
+                       ) -> None:
         most_recent = (observation, action, extrinsic_reward, done)
         for idx, key in enumerate(self._keys):
             getattr(self, key).append(most_recent[idx])

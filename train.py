@@ -47,3 +47,6 @@ def train(index: int, # default process index argument in mp.spawn
             extrinsic_return = 0
             batch_step = 0
         batch_step += 1
+    batch_result = agent.train(batch)
+    batch_result['reward/extrinsic_return'] = extrinsic_return
+    queue.put(batch_result)

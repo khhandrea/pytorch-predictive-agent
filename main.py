@@ -109,11 +109,11 @@ def main() -> None:
 
             # Print progress
             if iteration % experiment['progress_interval'] == 0:
-                data['iteration'] = iteration
+                data = {'iteration': iteration, **data} # Put iteration at first
                 progress.print(data)
 
             # Save checkpoints
-            if experiment['save_checkpoints'] and iteration % experiment['save_interval']:
+            if experiment['save_checkpoints'] and (iteration % experiment['save_interval'] == 0):
                 for network in networks:
                     save_dir = os.path.join('checkpoints', env_name, experiment_name, network)
                     file_name = os.path.join(f'step-{iteration}.pt')
