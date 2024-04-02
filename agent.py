@@ -37,13 +37,13 @@ class PredictiveAgent:
         )
         self.sync_network()
 
-        # Hyperparameters
-        self._local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
-        self._global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
+        # Parameters
+        global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
+        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
         self._hyperparameters = hyperparameters
-        self._optimizer = initialize_optimizer(self._hyperparameters['optimizer'],
-                                               self._global_model_parameters,
-                                               self._hyperparameters['learning_rate'])
+        self._global_optimizer = initialize_optimizer(self._hyperparameters['optimizer'],
+                                                      global_model_parameters,
+                                                      self._hyperparameters['learning_rate'])
 
         # Initialize memory data
         self._prev_action = torch.zeros(1, self._action_space.n)
@@ -52,6 +52,10 @@ class PredictiveAgent:
         self._batch_prev_observation = torch.zeros((1, 3, 64, 64))
         self._batch_prev_actions = torch.zeros((2, self._action_space.n))
         self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
+
+    def sync_network(self) -> None:
+        for network in self._networks:
+            self._local_networks[network].load_state_dict(self._global_networks[network].state_dict())
 
     def get_action(self, 
                    observation: np.ndarray
@@ -75,10 +79,6 @@ class PredictiveAgent:
             
             self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float()
         return action
-
-    def sync_network(self) -> None:
-        for network in self._networks:
-            self._local_networks[network].load_state_dict(self._global_networks[network].state_dict())
 
     def _icm_module(self,
                     observations: Tensor,
@@ -142,7 +142,7 @@ class PredictiveAgent:
     def train(self,
               batch: dict[str, Tensor]
               ) -> dict[str, float]:
-        self._optimizer.zero_grad()
+        self._global_optimizer.zero_grad()
 
         # Initialize tensors
         observations = torch.cat((self._batch_prev_observation, batch['observations']), dim=0) # [t-1:T]
@@ -171,18 +171,20 @@ class PredictiveAgent:
 
         # Update parameters with global parameters
         grad_norm = 0.
-        for global_params, local_params in zip(self._global_model_parameters, self._local_model_parameters):
+        global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
+        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
+        for global_params, local_params in zip(global_model_parameters, local_model_parameters):
             global_params._grad = local_params.grad
             if local_params.grad is not None:
-                grad_norm += (torch.norm(local_params.grad)**2).item()
+                grad_norm += torch.norm(local_params.grad)**2
+            local_params.grad = None
         grad_norm = np.sqrt(grad_norm).item()
-        self._optimizer.step()
+        self._global_optimizer.step()
         self.sync_network()
         
         # Update memory tensors
-        self._batch_prev_observation = observations[-1].detach().unsqueeze(dim=0)
-        self._batch_prev_actions = actions[-2:].detach()
-
+        self._batch_prev_observation = observations[-1].unsqueeze(dim=0)
+        self._batch_prev_actions = actions[-2:]
 
         data = {}
         data['controller/entropy'] = controller_entropy.item()

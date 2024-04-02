@@ -81,17 +81,11 @@ def main() -> None:
     env_class = MovingImageEnvironment
     env_name = env_class.__name__
     queue = mp.Queue()
-    trainer_args = (env_class,
-                    config['environment'],
-                    network_spec,
-                    config['hyperparameter'],
-                    queue,
-                    global_networks)
-    mp_context = spawn(fn=train,
-                       args=trainer_args,
-                       nprocs=cpu_num,
-                       daemon=True,
-                       join=False)
+    config['environment']['step_max'] = config['hyperparameter']['batch_size'] * experiment['iteration_max'] / cpu_num
+    print('Iteration:', experiment['iteration_max'])
+    trainer_args = (env_class, config['environment'], network_spec, config['hyperparameter'],
+                    queue, global_networks)
+    mp_context = spawn(fn=train, args=trainer_args, nprocs=cpu_num, daemon=True, join=False)
     print('Spawn complete')
 
     # Receiving data
