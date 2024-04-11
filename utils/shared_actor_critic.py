@@ -15,4 +15,4 @@ class SharedActorCritic(nn.Module):
         z = self._shared(x)
         policy = self._actor(z)
         value = self._critic(z)
-        return policy, value
+        return policy, value.view(-1)

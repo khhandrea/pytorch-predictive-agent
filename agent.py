@@ -7,7 +7,7 @@ from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 
 from utils import CustomModule, SharedActorCritic
-from utils import initialize_optimizer
+from utils import initialize_optimizer, calc_returns
 
 class PredictiveAgent:
     def __init__(self, 
@@ -39,7 +39,6 @@ class PredictiveAgent:
 
         # Parameters
         global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
-        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
         self._hyperparameters = hyperparameters
         self._global_optimizer = initialize_optimizer(self._hyperparameters['optimizer'],
                                                       global_model_parameters,
@@ -59,25 +58,26 @@ class PredictiveAgent:
 
     def get_action(self, 
                    observation: np.ndarray
-                   ) -> np.ndarray:
+                   ) -> int:
         if self._hyperparameters['random_policy']:
             action = np.array(self._action_space.sample())
         else:
-            observation = torch.from_numpy(observation).float().unsqueeze(0)
+            with torch.no_grad():
+                observation = torch.from_numpy(observation).float().unsqueeze(0)
 
-            # Feature extractor
-            feature = self._local_networks['feature_extractor'](observation)
+                # Feature extractor
+                feature = self._local_networks['feature_extractor'](observation)
 
-            # Inner state predictor
-            action_feature = torch.cat((self._prev_action, feature.detach()), 1)
-            inner_state, self._prev_inner_state = self._inner_state_predictor(action_feature, self._prev_inner_state)
+                # Inner state predictor
+                feature_action = torch.cat((feature, self._prev_action), dim=1)
+                inner_state = self._local_networks['inner_state_predictor'](feature_action, self._prev_inner_state)
+                self._prev_inner_state = inner_state[-1:].detach()
 
-            # Controller
-            policy, _ = self._local_networks['controller'](inner_state)
-            distribution = Categorical(probs=policy)
-            action = distribution.sample()
-            
-            self._prev_action = F.one_hot(action.detach(), num_classes=self._action_space.n).float()
+                # Controller
+                policy, _ = self._local_networks['controller'](inner_state)
+                action = Categorical(probs=policy).sample()
+                
+                self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float()
         return action
 
     def _icm_module(self,
@@ -110,12 +110,24 @@ class PredictiveAgent:
         pred_features = self._local_networks['feature_predictor'](inner_states_actions)
 
         predictor_loss = F.mse_loss(pred_features, features[1:]) 
+
         return inner_states[1:].detach(), predictor_loss
+
+    def _get_advantages_v_targets(self,
+                                  rewards: Tensor,
+                                  batch: dict[str, Tensor],
+                                  v_preds: Tensor):
+        with torch.no_grad():
+            last_feature = self._local_networks['feature_extractor'](batch['observations'][-1:])
+            _, last_v_pred = self._local_networks['controller'](last_feature)
+        returns = calc_returns(rewards, batch['dones'], last_v_pred, self._hyperparameters['gamma'])
+        advantages = returns - v_preds
+        return advantages, returns
 
     def _controller_module(self,
                            inner_states: Tensor,
                            actions: Tensor,
-                           extrinsic_rewards: Tensor, 
+                           batch: dict[str, Tensor],
                            intrinsic_rewards: Tensor
                            ) -> tuple[Tensor, Tensor, Tensor]:
         if self._hyperparameters['random_policy']:
@@ -123,20 +135,15 @@ class PredictiveAgent:
             value_loss = tensor(0.)
             entropy = tensor(0.)
         else:
-            # GAE A2C
-            assert len(actions) == len(extrinsic_rewards)
-            assert len(extrinsic_rewards) == len(intrinsic_rewards)
-
-            policy_loss = tensor(0.)
-            value_loss = tensor(0.)
-            entropy = tensor(0.)
-            # rewards = extrinsic_rewards + self._hyperparameters['intrinsic_reward_scale'] * intrinsic_rewards
-            # policies, v_preds = self._local_networks['controller'](inner_states)
-            # distributions = Categorical(probs=policies)
-            # log_probs = distributions.log_prob(actions)
-            # entropy = distributions.entropy().mean()
-            # policy_loss = -(gaes * log_probs).mean()
-            # value_loss = F.mse_loss(v_preds, v_targets)
+            rewards = batch['extrinsic_rewards'] + self._hyperparameters['intrinsic_reward_scale'] * intrinsic_rewards
+            policies, v_preds = self._local_networks['controller'](inner_states)
+            advantages, v_targets = self._get_advantages_v_targets(rewards, batch, v_preds)
+            distributions = Categorical(probs=policies)
+            actions = torch.argmax(actions, dim=1)
+            log_probs = distributions.log_prob(actions)
+            entropy = distributions.entropy().mean()
+            policy_loss = -(advantages * log_probs).mean()
+            value_loss = F.mse_loss(v_preds, v_targets)
         return policy_loss, value_loss, entropy
 
     def train(self,
@@ -146,16 +153,15 @@ class PredictiveAgent:
 
         # Initialize tensors
         observations = torch.cat((self._batch_prev_observation, batch['observations']), dim=0) # [t-1:T]
-        actions = F.one_hot(batch['actions'], num_classes=self._action_space.n).float() # [t-2:T]
+        actions = F.one_hot(batch['actions'].to(torch.int64), num_classes=self._action_space.n).float() # [t-2:T]
         actions = torch.cat((self._batch_prev_actions, actions), dim=0) # [t-2:T]
 
         # Calculate loss
         features, inverse_loss, inverse_accuracy, inverse_entropy = self._icm_module(observations, actions[1:-1])
         inner_states, predictor_loss = self._predictor_module(features, actions[:-1])
-        predictor_loss = predictor_loss * 0. # Debug
         policy_loss, value_loss, controller_entropy = self._controller_module(inner_states,
                                                                               actions[2:],
-                                                                              batch['extrinsic_rewards'],
+                                                                              batch,
                                                                               predictor_loss.detach())
         controller_loss = self._hyperparameters['policy_loss_scale'] * policy_loss\
                            + self._hyperparameters['value_loss_scale'] * value_loss\

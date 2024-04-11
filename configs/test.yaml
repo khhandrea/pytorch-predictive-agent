@@ -22,7 +22,7 @@ load_path:
 
 hyperparameter:
   batch_size: 128
-  random_policy: True
+  random_policy: False
   optimizer: sgd
   gradient_clipping: -1
   learning_rate: 1.0e-4

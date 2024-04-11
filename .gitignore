@@ -1,6 +1,8 @@
 __pycache__/
 .mypy_cache/
 .vscode/
+
+prompt.sh
 logs/
 checkpoints/
 configs/

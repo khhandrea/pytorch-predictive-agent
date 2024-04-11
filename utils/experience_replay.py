@@ -28,6 +28,6 @@ class OnPolicyExperienceReplay():
         for key in self._keys:
             batch[key] = getattr(self, key)
             if to_tensor:
-                batch[key] = tensor(batch[key])
+                batch[key] = tensor(batch[key], dtype=torch.float32)
         self._reset()
         return batch
