@@ -12,7 +12,7 @@ from torch.utils.tensorboard import SummaryWriter
 from environments import MovingImageEnvironment
 from train import train
 from utils import CustomModule, ProgressFormatter, SharedActorCritic
-from utils import save_module
+from utils import append_to_csv, save_module
 
 def get_config_path() -> str:
     argument_parser = ArgumentParser(prog="Predictive navigation agent RL framework",
@@ -96,8 +96,15 @@ def main() -> None:
             data = queue.get()
             iteration += 1
 
-            # Log with tensorboard
+            # Save experiment result
             if experiment['save_log']:
+                coord_dir = os.path.join('coord_logs', experiment_name)
+                filename = 'process_' + str(data['index']) + '.csv'
+                append_to_csv(data['coordinates'], coord_dir, filename)
+
+                del data['coordinates']
+                del data['index']
+
                 for value in data:
                     log_writer.add_scalar(value, data[value], iteration)
 
@@ -106,7 +113,7 @@ def main() -> None:
                 data = {'iteration': iteration, **data} # Put iteration at first
                 progress.print(data)
 
-            # Save checkpoints
+            # Save parameter checkpoints
             if experiment['save_checkpoints'] and (iteration % experiment['save_interval'] == 0):
                 for network in networks:
                     save_dir = os.path.join('checkpoints', env_name, experiment_name, network)

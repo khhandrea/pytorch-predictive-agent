@@ -8,3 +8,4 @@ checkpoints/
 configs/
 config_logs/
 config_logs_archived/
+coord_logs/

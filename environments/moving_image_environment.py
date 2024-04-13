@@ -152,6 +152,7 @@ class MovingImageEnvironment(gym.Env):
     def _get_info(self) -> dict[str, Any]:
         info = {
             'Environment.name': 'LinearSpectrumEnvironment',
-            'TimeLimit.truncated': self._step_max
+            'TimeLimit.truncated': self._step_max,
+            'Environment.coordinate': (self.coordinate[0], self.coordinate[1])
         }
         return info

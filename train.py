@@ -25,6 +25,8 @@ def train(index: int, # default process index argument in mp.spawn
     def train_agent():
         train_result = agent.train(batch)
         train_result['reward/extrinsic_return'] = extrinsic_return
+        train_result['index'] = index
+        train_result['coordinates'] = coordinates
         queue.put(train_result)
 
     env = env_class(**env_args)
@@ -37,19 +39,23 @@ def train(index: int, # default process index argument in mp.spawn
     terminated = truncated = False
     batch_step = 1
     extrinsic_return = 0
+    coordinates = []
     while not (terminated or truncated):
         observation = preprocess_observation(observation, env.observation_space.high, env.observation_space.low)
         action = agent.get_action(observation)
-        next_observation, extrinsic_reward, terminated, truncated, _ = env.step(action)
+        next_observation, extrinsic_reward, terminated, truncated, info = env.step(action)
         replay.add_experience(observation, action, extrinsic_reward, terminated or truncated)
         extrinsic_return += extrinsic_reward
         observation = next_observation
+
+        coordinates.append(info['Environment.coordinate'])
         
         if batch_step == batch_size:
             batch = replay.sample(to_tensor=True)
             train_agent()
 
             extrinsic_return = 0
+            coordinates = []
             batch_step = 0
         batch_step += 1
     train_agent()

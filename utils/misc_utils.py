@@ -1,9 +1,17 @@
+from csv import writer
 from typing import Iterable
 import os
 
 from torch import nn, save
 from torch.nn.parameter import Parameter
 from torch import optim
+
+def append_to_csv(rows, directory, filename):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    path = os.path.join(directory, filename)
+    with open(path, 'a', newline='') as file:
+        writer(file).writerows(rows)
 
 def save_module(module: nn.Module,
                 directory: str,
