@@ -1,0 +1,12 @@
+- experiment_results
+	- {experiment_name}
+		- config.yaml
+		- checkpoints
+			- feature-extractor
+				- step-{step}.pt
+			- ...
+		- coordinates
+			- process-{process}.csv
+			- ...
+		- log
+			- ...

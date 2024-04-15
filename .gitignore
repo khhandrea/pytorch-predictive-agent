@@ -3,9 +3,5 @@ __pycache__/
 .vscode/
 
 prompt.sh
-logs/
-checkpoints/
 configs/
-config_logs/
-config_logs_archived/
-coord_logs/
+experiment_results/

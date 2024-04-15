@@ -42,11 +42,28 @@ def main() -> None:
     print('Experiment name:', experiment_name)
     print('Description:', experiment['description'])
 
-    # Save current configuration file to config_logs
+    networks = ('feature_extractor',
+                'inverse_network',
+                'inner_state_predictor',
+                'feature_predictor',
+                'controller')
+
     if experiment['save_log']:
-        destination_path = os.path.join('config_logs', experiment_name + '.yaml')
-        copy(config_path, destination_path)
-        log_writer = SummaryWriter(f"logs/{experiment_name}")
+        experiment_dir = os.path.join('experiment_results', experiment_name)
+
+        # Make result directories
+        os.mkdir(experiment_dir)
+        os.mkdir(os.path.join(experiment_dir, 'log'))
+        os.mkdir(os.path.join(experiment_dir, 'coordinates'))
+        os.mkdir(os.path.join(experiment_dir, 'checkpoints'))
+        for network in networks:
+            os.mkdir(os.path.join(experiment_dir, 'checkpoints', network))
+
+        # Save config file
+        copy(config_path, os.path.join(experiment_dir, 'config.yaml'))
+
+        # Tensorboard
+        log_writer = SummaryWriter(os.path.join(experiment_dir, 'log'))
 
     # Multiprocessing configuration
     mp.set_start_method('spawn')
@@ -56,11 +73,6 @@ def main() -> None:
     print('Subrocess num:', cpu_num)
     
     # Initialize global network
-    networks = ('feature_extractor',
-                'inverse_network',
-                'inner_state_predictor',
-                'feature_predictor',
-                'controller')
     global_networks = {}
     for network in networks[:-1]:
         global_networks[network] = CustomModule(config['network_spec'][network])
@@ -96,15 +108,15 @@ def main() -> None:
             data = queue.get()
             iteration += 1
 
-            # Save experiment result
+            # Save coordinates
             if experiment['save_log']:
-                coord_dir = os.path.join('coord_logs', experiment_name)
+                coord_dir = os.path.join(experiment_dir, 'coordinates')
                 filename = 'process_' + str(data['index']) + '.csv'
                 append_to_csv(data['coordinates'], coord_dir, filename)
-
             del data['coordinates']
             del data['index']
 
+            # Save tensorboard
             if experiment['save_log']:
                 for value in data:
                     log_writer.add_scalar(value, data[value], iteration)
@@ -117,7 +129,7 @@ def main() -> None:
             # Save parameter checkpoints
             if experiment['save_checkpoints'] and (iteration % experiment['save_interval'] == 0):
                 for network in networks:
-                    save_dir = os.path.join('checkpoints', env_name, experiment_name, network)
+                    save_dir = os.path.join(experiment_dir, 'checkpoints', network)
                     file_name = os.path.join(f'step-{iteration}.pt')
                     save_module(global_networks[network], save_dir, file_name)
         else:
