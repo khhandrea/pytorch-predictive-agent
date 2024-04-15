@@ -102,9 +102,10 @@ def main() -> None:
                 filename = 'process_' + str(data['index']) + '.csv'
                 append_to_csv(data['coordinates'], coord_dir, filename)
 
-                del data['coordinates']
-                del data['index']
+            del data['coordinates']
+            del data['index']
 
+            if experiment['save_log']:
                 for value in data:
                     log_writer.add_scalar(value, data[value], iteration)
 

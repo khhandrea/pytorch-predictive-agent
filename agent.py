@@ -1,4 +1,5 @@
 from itertools import chain
+from typing import Optional
 
 import numpy as np
 import torch
@@ -7,7 +8,7 @@ from torch.distributions.categorical import Categorical
 from torch.nn import functional as F
 
 from utils import CustomModule, SharedActorCritic
-from utils import initialize_optimizer, calc_returns
+from utils import initialize_optimizer, calc_returns, calc_gaes
 
 class PredictiveAgent:
     def __init__(self, 
@@ -116,13 +117,20 @@ class PredictiveAgent:
     def _get_advantages_v_targets(self,
                                   rewards: Tensor,
                                   batch: dict[str, Tensor],
-                                  v_preds: Tensor):
+                                  v_preds: Tensor
+                                  ) -> tuple[Tensor, Tensor]:
         with torch.no_grad():
             last_feature = self._local_networks['feature_extractor'](batch['observations'][-1:])
             _, last_v_pred = self._local_networks['controller'](last_feature)
-        returns = calc_returns(rewards, batch['dones'], last_v_pred, self._hyperparameters['gamma'])
-        advantages = returns - v_preds
-        return advantages, returns
+        if self._hyperparameters.get('lmbda'):
+            v_preds_all = torch.cat((v_preds, last_v_pred), dim=0)
+            advantages = calc_gaes(rewards, batch['dones'], v_preds_all, self._hyperparameters['gamma'], self._hyperparameters['lmbda'])
+            v_target = advantages + v_preds
+        else:
+            returns = calc_returns(rewards, batch['dones'], last_v_pred, self._hyperparameters['gamma'])
+            advantages = returns - v_preds
+            v_target = returns
+        return advantages, v_target
 
     def _controller_module(self,
                            inner_states: Tensor,
@@ -137,8 +145,8 @@ class PredictiveAgent:
         else:
             rewards = batch['extrinsic_rewards'] + self._hyperparameters['intrinsic_reward_scale'] * intrinsic_rewards
             policies, v_preds = self._local_networks['controller'](inner_states)
-            advantages, v_targets = self._get_advantages_v_targets(rewards, batch, v_preds)
-            distributions = Categorical(probs=policies)
+            advantages, v_targets = self._get_advantages_v_targets(rewards, batch, v_preds.detach())
+            distributions = Categorical(policies)
             actions = torch.argmax(actions, dim=1)
             log_probs = distributions.log_prob(actions)
             entropy = distributions.entropy().mean()
