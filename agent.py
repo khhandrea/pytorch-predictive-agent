@@ -141,7 +141,7 @@ class PredictiveAgent:
         if self._hyperparameters['random_policy']:
             policy_loss = tensor(0.)
             value_loss = tensor(0.)
-            entropy = tensor(0.)
+            entropy = np.log(actions.shape[-1])
         else:
             rewards = batch['extrinsic_rewards'] + self._hyperparameters['intrinsic_reward_scale'] * intrinsic_rewards
             policies, v_preds = self._local_networks['controller'](inner_states)

@@ -2,6 +2,7 @@ experiment:
   name: test-v2
   description: test-v2
   save_log: False
+  save_trajectory: False
   save_checkpoints: False
   save_interval: 1000
   progress_interval: 50

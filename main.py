@@ -48,22 +48,20 @@ def main() -> None:
                 'feature_predictor',
                 'controller')
 
-    if experiment['save_log']:
+    # Make result directories
+    if experiment['save_log'] or experiment['save_trajectory'] or experiment['save_checkpoints']:
         experiment_dir = os.path.join('experiment_results', experiment_name)
-
-        # Make result directories
         os.mkdir(experiment_dir)
+        copy(config_path, os.path.join(experiment_dir, 'config.yaml'))
+    if experiment['save_log']:
         os.mkdir(os.path.join(experiment_dir, 'log'))
-        os.mkdir(os.path.join(experiment_dir, 'coordinates'))
+        log_writer = SummaryWriter(os.path.join(experiment_dir, 'log'))
+    if experiment['save_checkpoints']:
         os.mkdir(os.path.join(experiment_dir, 'checkpoints'))
         for network in networks:
             os.mkdir(os.path.join(experiment_dir, 'checkpoints', network))
-
-        # Save config file
-        copy(config_path, os.path.join(experiment_dir, 'config.yaml'))
-
-        # Tensorboard
-        log_writer = SummaryWriter(os.path.join(experiment_dir, 'log'))
+    if experiment['save_trajectory']:
+        os.mkdir(os.path.join(experiment_dir, 'coordinates'))
 
     # Multiprocessing configuration
     mp.set_start_method('spawn')
@@ -109,7 +107,7 @@ def main() -> None:
             iteration += 1
 
             # Save coordinates
-            if experiment['save_log']:
+            if experiment['save_trajectory']:
                 coord_dir = os.path.join(experiment_dir, 'coordinates')
                 filename = 'process_' + str(data['index']) + '.csv'
                 append_to_csv(data['coordinates'], coord_dir, filename)
