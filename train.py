@@ -62,7 +62,6 @@ def train(index: int,
     coordinates = []
     while not (terminated or truncated):
         observation = preprocess_observation(observation, env.observation_space.high, env.observation_space.low)
-        np.sqrt()
         action = agent.get_action(observation)
         next_observation, extrinsic_reward, terminated, truncated, info = env.step(action)
         replay.add_experience(observation, action, extrinsic_reward, terminated or truncated)

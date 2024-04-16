@@ -18,7 +18,7 @@ def append_to_csv(items: tuple,
         directory(str): destination directory
         filename(str): destination file name in the directory
     """
-    os.makedirs(directory)
+    os.makedirs(directory, exist_ok=True)
     path = os.path.join(directory, file_name)
     with open(path, 'a', newline='') as file:
         writer(file).writerows(items)
@@ -35,8 +35,7 @@ def save_module(module: nn.Module,
         directory(str): destination directory
         file_name(str): destination file name in the directory
     """
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    os.makedirs(directory, exist_ok=True)
     save(module.state_dict(),
          os.path.join(directory, file_name))
 
