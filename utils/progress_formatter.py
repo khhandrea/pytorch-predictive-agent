@@ -7,6 +7,9 @@ def seconds_to_hms(total_seconds: float) -> str:
     return f'{hours:02.0f}:{minutes:02.0f}:{seconds:02.0f}'
 
 class ProgressFormatter:
+    """
+    Print data with elapsed time, with the form of table
+    """
     def __init__(self):
         self._is_first = True
         self._start_time = time()

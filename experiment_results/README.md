@@ -1,12 +1,8 @@
-- experiment_results
-	- {experiment_name}
-		- config.yaml
-		- checkpoints
-			- feature-extractor
-				- step-{step}.pt
-			- ...
-		- coordinates
-			- process-{process}.csv
-			- ...
-		- log
-			- ...
+# Pytorch-predictive-agent/experiment_results
+
+| name | description |
+| --- | --- |
+| config.yaml | configuration file of the experiment |
+| checkpoints | model parameters, the form of state_dict |
+| coordinates | agent trajectories, the form of csv |
+| log | tensorboard log |

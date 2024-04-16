@@ -5,15 +5,15 @@ class CustomModule(nn.Module):
         self,
         spec: dict[str, dict]
     ):
-        '''
+        """
         returns pytorch.nn.Module according to set object
 
         Args:
             spec(dict[str, Any]): pytorch module spec. See below to look the rules: https://github.com/khhandrea/pytorch-initialize-module-from-yaml/README/md
         
         Returns
-            module(pytorch.nn.Module): pytorch module
-        '''
+            module(torch.nn.Module): pytorch module
+        """
         super().__init__()
         module_list = []
 

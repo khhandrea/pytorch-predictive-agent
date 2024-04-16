@@ -6,6 +6,15 @@ def calc_returns(rewards: Tensor,
                  last_v_pred: Tensor,
                  gamma: float
                  ) -> Tensor:
+    """
+    Calculate {batch size}-step TD return.
+
+    Attributes:
+        rewards(Tensor): rewards at each time step
+        dones(Tensor): mask Tensor whether the episode is end
+        last_v_pred(Tensor): state-value prediction at the next step of last step of the reward
+        gamma(float): discount factor range of [0, 1]
+    """
     assert len(rewards) == len(dones)
     assert len(last_v_pred) == 1
 
@@ -16,7 +25,22 @@ def calc_returns(rewards: Tensor,
         returns[t] = G = rewards[t] + gamma * G * not_dones[t]
     return returns
 
-def calc_gaes(rewards, dones, v_preds, gamma, lmbda):
+def calc_gaes(rewards: Tensor,
+              dones: Tensor,
+              v_preds: Tensor,
+              gamma: float,
+              lmbda: float
+              ) -> Tensor:
+    """
+    Calculate general advantage estimation.
+
+    Attributes:
+        rewards(Tensor): rewards at each time step
+        dones(Tensor): mask Tensor whether the episode is end
+        v_preds(Tensor): state-value predictions at each time step
+        gamma(float): discount factor range of [0, 1]
+        lmbda(float): ratio of the series range of [0, 1]
+    """
     T = len(rewards)
     assert T + 1 == len(v_preds)
     

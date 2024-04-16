@@ -75,7 +75,7 @@ class PredictiveAgent:
                 self._prev_inner_state = inner_state[-1:].detach()
 
                 # Controller
-                policy, _ = self._local_networks['controller'](inner_state)
+                policy = self._local_networks['controller'].policy(inner_state)
                 action = Categorical(probs=policy).sample()
                 
                 self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float()
@@ -121,7 +121,7 @@ class PredictiveAgent:
                                   ) -> tuple[Tensor, Tensor]:
         with torch.no_grad():
             last_feature = self._local_networks['feature_extractor'](batch['observations'][-1:])
-            _, last_v_pred = self._local_networks['controller'](last_feature)
+            last_v_pred = self._local_networks['controller'].value(last_feature)
         if self._hyperparameters.get('lmbda'):
             v_preds_all = torch.cat((v_preds, last_v_pred), dim=0)
             advantages = calc_gaes(rewards, batch['dones'], v_preds_all, self._hyperparameters['gamma'], self._hyperparameters['lmbda'])
@@ -144,7 +144,8 @@ class PredictiveAgent:
             entropy = np.log(actions.shape[-1])
         else:
             rewards = batch['extrinsic_rewards'] + self._hyperparameters['intrinsic_reward_scale'] * intrinsic_rewards
-            policies, v_preds = self._local_networks['controller'](inner_states)
+            policies = self._local_networks['controller'].policy(inner_states)
+            v_preds = self._local_networks['controller'].value(inner_states)
             advantages, v_targets = self._get_advantages_v_targets(rewards, batch, v_preds.detach())
             distributions = Categorical(policies)
             actions = torch.argmax(actions, dim=1)
@@ -153,6 +154,21 @@ class PredictiveAgent:
             policy_loss = -(advantages * log_probs).mean()
             value_loss = F.mse_loss(v_preds, v_targets)
         return policy_loss, value_loss, entropy
+
+    def _update_global_parameters(self) -> float:
+        grad_norm = 0.
+        global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
+        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
+        for global_params, local_params in zip(global_model_parameters, local_model_parameters):
+            global_params._grad = local_params.grad
+            if local_params.grad is not None:
+                grad_norm += torch.norm(local_params.grad)**2
+            local_params.grad = None
+        grad_norm = np.sqrt(grad_norm).item()
+        self._global_optimizer.step()
+        self.sync_network()
+
+        return grad_norm
 
     def train(self,
               batch: dict[str, Tensor]
@@ -183,18 +199,7 @@ class PredictiveAgent:
         if self._hyperparameters['gradient_clipping'] != -1:
             nn.utils.clip_grad_norm_(self._local_model_parameters, self._hyperparameters['gradient_clipping'])
 
-        # Update parameters with global parameters
-        grad_norm = 0.
-        global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
-        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
-        for global_params, local_params in zip(global_model_parameters, local_model_parameters):
-            global_params._grad = local_params.grad
-            if local_params.grad is not None:
-                grad_norm += torch.norm(local_params.grad)**2
-            local_params.grad = None
-        grad_norm = np.sqrt(grad_norm).item()
-        self._global_optimizer.step()
-        self.sync_network()
+        grad_norm = self._update_global_parameters()
         
         # Update memory tensors
         self._batch_prev_observation = observations[-1].unsqueeze(dim=0)

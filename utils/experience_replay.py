@@ -3,6 +3,10 @@ import torch
 from torch import Tensor, tensor
 
 class OnPolicyExperienceReplay():
+    """
+    On-policy experience replay. items: observations, actions, extrinsic_rewards, dones
+    """
+
     def __init__(self):
         self.size = 0
         self._keys = ('observations', 'actions', 'extrinsic_rewards', 'dones')
@@ -14,6 +18,15 @@ class OnPolicyExperienceReplay():
         self.size = 0
 
     def add_experience(self, *experience) -> None:
+        """
+        Add one step data
+
+        Attributes:
+            observation(numpy.ndarray): observation
+            action(int): discrete action
+            extrinsic_reward(float): extrinsic reward
+            dones(bool): mask whether the episode is end
+        """
         assert len(experience) == len(self._keys)
 
         for idx, key in enumerate(self._keys):
@@ -23,7 +36,18 @@ class OnPolicyExperienceReplay():
             setattr(self, key, new_item)
         self.size += 1
 
-    def sample(self, to_tensor: bool) -> dict[str, Tensor | np.ndarray]:
+    def sample(self,
+               to_tensor: bool = False
+               ) -> dict[str, Tensor | np.ndarray]:
+        """
+        Sample from the on-policy experience replay
+
+        Attributes:
+            to_tensor(bool): if true, the types of all of the return items will be Tensor
+
+        Returns:
+            batch(dict[str, Tensor | numpy.ndarray]): dictionary of observations, actions, extrinsic_rewards, dones
+        """
         batch = {}
         for key in self._keys:
             batch[key] = getattr(self, key)
