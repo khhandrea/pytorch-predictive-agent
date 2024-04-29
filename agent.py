@@ -1,5 +1,4 @@
 from itertools import chain
-from typing import Optional
 
 import numpy as np
 import torch
@@ -159,10 +158,17 @@ class PredictiveAgent:
         grad_norm = 0.
         global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
         local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
+
+        # Gradient clipping
+        if self._hyperparameters['gradient_clipping'] != -1:
+            norm = nn.utils.clip_grad_norm_(local_model_parameters, self._hyperparameters['gradient_clipping'])
+
         for global_params, local_params in zip(global_model_parameters, local_model_parameters):
             global_params._grad = local_params.grad
+            # Calculate gradient norm
             if local_params.grad is not None:
                 grad_norm += torch.norm(local_params.grad)**2
+            # Reset local gradients
             local_params.grad = None
         grad_norm = np.sqrt(grad_norm).item()
         self._global_optimizer.step()
@@ -195,9 +201,6 @@ class PredictiveAgent:
                 + controller_loss
         loss.backward()
 
-        # Gradient clipping
-        if self._hyperparameters['gradient_clipping'] != -1:
-            nn.utils.clip_grad_norm_(self._local_model_parameters, self._hyperparameters['gradient_clipping'])
 
         grad_norm = self._update_global_parameters()
         

@@ -1,30 +1,27 @@
 # Python-predict-agent
 
 ## TODO
-- CircularEnvironment
-- Continuous action
-- Implement VBN-like, curiosity-like, world-model-like
-- Put random policy an entropy
-
-- Makefile setting (ref. https://kimjingo.tistory.com/203)
-- Parallel modules
-- Rethinking loss at once
-- Theoretical proof of convergence
+- Shorter term
+  - Train code abstraction (from DML to real)
+  - Synchronize with DML
+- Longer term
+  - CircularEnvironment
+  - Continuous action
+  - Implement VBN-like, curiosity-like, world-model-like
+  - Makefile setting (ref. https://kimjingo.tistory.com/203)
+  - Theoretical proof of convergence
 
 ## Usage
-- Train help
+- Train
 ```
-python3 main.py --help
-```
-
-- Train (example)
-```
-python3 main.py --random_policy
+python3 main.py --config configs/test.yaml
 ```
 
 - Tensorboard
 ```
-sh sh/tensorboard.sh
+tensorboard --logdir=experiment_results
+(or)
+tensorboard --logdir=experiment_results/{experiment name}
 ```
 
 ## Deepmind lab

@@ -68,7 +68,7 @@ class MovingImageEnvironment(gym.Env):
         if action == 3:
             self.coordinate[0] -= self._agent_speed
 
-        self.coordinate[0] = max(0, min(self._image.height - self._observation_size[1], self.coordinate[0]))
+        self.coordinate[0] = max(0, min(self._image.width - self._observation_size[1], self.coordinate[0]))
         self.coordinate[1] = max(0, min(self._image.height - self._observation_size[2], self.coordinate[1]))
 
         observation = self._get_observation()
