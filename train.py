@@ -1,13 +1,14 @@
 from typing import Any
 
 from torch import Tensor, nn, multiprocessing as mp
+import gymnasium as gym
 
+import environments
 from agent import PredictiveAgent
 from utils import OnPolicyExperienceReplay, preprocess_observation
 
 def train(index: int,
-          env_class: type,
-          env_args: dict[str, Any],
+          env_config: dict[str, Any],
           network_spec: dict[str, Any],
           hyperparameters: dict[str, float],
           queue: mp.Queue,
@@ -17,8 +18,7 @@ def train(index: int,
 
     Attributes:
         index(int): default process index argument in torch.multiprocessing.spawn
-        env_class(type): environment class to be initialized
-        env_args(dict[str, Any]): environment attributes for environment to be initialized
+        env_config(dict[str, Any]): environment attributes for environment to be initialized with gymnasium.make()
         network_spec(dict[str, Any]): torch network specification with dictionary
         hyperparameters(dict[str, float]): training hyperparameters
         queue(torch.multiprocessing.Queue): data structure for torch.multiprocessing
@@ -31,7 +31,7 @@ def train(index: int,
         train_result['coordinates'] = coordinates
         queue.put(train_result)
 
-    env = env_class(**env_args)
+    env = gym.make(**env_config)
     batch_size = hyperparameters['batch_size']
     agent = PredictiveAgent(env, network_spec, global_networks, hyperparameters)
     replay = OnPolicyExperienceReplay()

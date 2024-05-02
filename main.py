@@ -88,12 +88,15 @@ def main() -> None:
         global_networks[network].share_memory()
 
     # Mutiprocessing
-    env_class = MovingImageEnvironment
     queue = mp.Queue()
     config['environment']['step_max'] = config['hyperparameter']['batch_size'] * experiment['iteration_max'] / cpu_num
     print('Iteration:', experiment['iteration_max'])
-    trainer_args = (env_class, config['environment'], network_spec, config['hyperparameter'],
-                    queue, global_networks)
+    trainer_args = (config['environment'],
+                    network_spec,
+                    config['hyperparameter'],
+                    queue,
+                    global_networks
+                    )
     mp_context = spawn(fn=train, args=trainer_args, nprocs=cpu_num, daemon=True, join=False)
     print('Spawn complete')
 

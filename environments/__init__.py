@@ -5,13 +5,11 @@ from environments.linear_spectrum_environment import LinearSpectrumEnvironment
 from environments.moving_image_environment import MovingImageEnvironment
 
 register(
-    id="environments/LinearSpectrumEnvironment",
-    entry_point="python-predictive-agent.environments:LinearSpectrumEnvironment",
-    max_episode_steps=300,
+    id="pytorch-predictive-agent/LinearSpectrumEnvironment-v0",
+    entry_point="environments.linear_spectrum_environment:LinearSpectrumEnvironment",
 )
 
 register(
-    id="environments/MovingImageEnvironment",
-    entry_point="python-predictive-agent.environments:MovingImageEnvironment",
-    max_episode_steps=300
+    id="pytorch-predictive-agent/MovingImageEnvironment-v0",
+    entry_point="environments.moving_image_environment:MovingImageEnvironment",
 )
