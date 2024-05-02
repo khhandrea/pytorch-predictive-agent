@@ -2,6 +2,8 @@ from csv import writer
 from typing import Iterable
 import os
 
+from cv2 import resize
+import numpy as np
 from torch import nn, save
 from torch.nn.parameter import Parameter
 from torch import optim
@@ -62,3 +64,26 @@ def initialize_optimizer(optimizer_name: str,
         case _:
             raise Exception(f'Invalid optimizer: {optimizer}')
     return optimizer(params, lr=learning_rate)
+
+def preprocess_observation(observation: np.ndarray,
+                           dsize: tuple[int, int],
+                           high: float,
+                           low: float,
+                           ) -> np.ndarray:
+    """
+    Preprocess numpy array images to specific form. Standardize images between upper bound and lower bound.
+
+    Attributes:
+        observation(numpy.ndarray): input images
+        high(numpy.ndarray): Upper bound of the pixel value
+        low(numpy.ndarray): Lower bound of the pixel value
+    """
+    # Resize image
+    result = np.transpose(observation, (1, 2, 0))
+    result = resize(result, dsize)
+    result = np.transpose(result, (2, 0, 1))
+
+    # Standardize image
+    result = result.astype(float) / (high - low) + low
+    result = result.astype(np.float32)
+    return result

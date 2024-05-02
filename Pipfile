@@ -21,6 +21,7 @@ pyyaml = "==6.0.1"
 pillow = "==10.2.0"
 ipykernel = "*"
 matplotlib = "==3.8.4"
+opencv-python = "==4.9.0.80"
 
 [dev-packages]
 

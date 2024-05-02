@@ -87,9 +87,8 @@ def main() -> None:
             print(f'load {network} from {load_path[network]}')
         global_networks[network].share_memory()
 
-    # Multiprocessing
+    # Mutiprocessing
     env_class = MovingImageEnvironment
-    env_name = env_class.__name__
     queue = mp.Queue()
     config['environment']['step_max'] = config['hyperparameter']['batch_size'] * experiment['iteration_max'] / cpu_num
     print('Iteration:', experiment['iteration_max'])

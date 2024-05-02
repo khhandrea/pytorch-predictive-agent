@@ -1,26 +1,9 @@
 from typing import Any
 
-import numpy as np
-from torch import nn, multiprocessing as mp
+from torch import Tensor, nn, multiprocessing as mp
 
 from agent import PredictiveAgent
-from utils import OnPolicyExperienceReplay
-
-def preprocess_observation(observation: np.ndarray,
-                        high: np.ndarray,
-                        low: np.ndarray
-                        ) -> np.ndarray:
-    """
-    Preprocess numpy array images to specific form. Noralize images between upper bound and lower bound.
-
-    Attributes:
-        observation(numpy.ndarray): input images
-        high(numpy.ndarray): Upper bound of the pixel value
-        low(numpy.ndarray): Lower bound of the pixel value
-    """
-    result = observation.astype(float) / (high - low) + low
-    result = result.astype(np.float32)
-    return result
+from utils import OnPolicyExperienceReplay, preprocess_observation
 
 def train(index: int,
           env_class: type,
@@ -41,8 +24,7 @@ def train(index: int,
         queue(torch.multiprocessing.Queue): data structure for torch.multiprocessing
         global_networks(dict[str, torch.nn.Module]): torch.nn.Module networks from main process
     """
-
-    def train_agent():
+    def train_agent(batch: dict[str, Tensor]):
         train_result = agent.train(batch)
         train_result['reward/extrinsic_return'] = extrinsic_return
         train_result['index'] = index
@@ -61,7 +43,7 @@ def train(index: int,
     extrinsic_return = 0
     coordinates = []
     while not (terminated or truncated):
-        observation = preprocess_observation(observation, env.observation_space.high, env.observation_space.low)
+        observation = preprocess_observation(observation, (64, 64), env.observation_space.high, env.observation_space.low)
         action = agent.get_action(observation)
         next_observation, extrinsic_reward, terminated, truncated, info = env.step(action)
         replay.add_experience(observation, action, extrinsic_reward, terminated or truncated)
@@ -74,9 +56,11 @@ def train(index: int,
 
         if batch_step == batch_size:
             batch = replay.sample(to_tensor=True)
-            train_agent()
+            train_agent(batch)
 
             extrinsic_return = 0
             coordinates = []
             batch_step = 0
-    train_agent()
+    if replay.size > 0:
+        batch = replay.sample(to_tensor=True)
+        train_agent(batch)

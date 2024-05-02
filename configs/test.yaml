@@ -25,7 +25,7 @@ hyperparameter:
   batch_size: 128
   random_policy: False
   optimizer: sgd
-  gradient_clipping: -1
+  gradient_clipping: 100
   learning_rate: 1.0e-4
   inverse_loss_scale: 0.8
   predictor_loss_scale: 0.2

@@ -10,7 +10,7 @@
     - cpu_num (*int*): how many cpus to progress multiprocessing. *Maximal cpu_num if -1*
 
 - **environment**: factors that affect the environments in each cpu
-    - render_mode (*str*): *TBD*
+    - render_mode (*str*): environment render mode
     - step_max (*int*): max step for the environment
     - agent_speed (*int*): speed of the agent in the environment
     - noise_scale (*int*): noise scale for the observation
@@ -26,7 +26,7 @@
     - batch_size (*int*): how many steps to update parameters once
     - random_policy (*boolean*): if the agent chooses random actions
     - optimizer (*str*): e.g. 'sgd', 'adam'
-    - gradient_clipping (*float*): norm to clip the loss gradient *no gradient clipping if -1*
+    - gradient_clipping (*float*): norm to clip the loss gradient
     - learning_rate (*float*)
     - inverse_loss_scale (*float*): e.g. 0.5 to have the half impact
     - predictor_loss_scale (*float*): e.g. 0.5 to have the half impact
