@@ -49,8 +49,7 @@ class MovingImageEnvironment(gym.Env):
 
         return observation, info
 
-    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
-        action = action.item()
+    def step(self, action: int) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         # 0: up, 1: right, 2: down, 3: left
         assert action in [0, 1, 2, 3]
 

@@ -33,7 +33,7 @@ def train(index: int,
 
     env = gym.make(**env_config)
     batch_size = hyperparameters['batch_size']
-    agent = PredictiveAgent(env, network_spec, global_networks, hyperparameters)
+    agent = PredictiveAgent(env.action_space.n, network_spec, global_networks, hyperparameters)
     replay = OnPolicyExperienceReplay()
 
     observation, _ = env.reset()

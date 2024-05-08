@@ -1,4 +1,5 @@
 from itertools import chain
+from random import randint
 
 import numpy as np
 import torch
@@ -11,11 +12,11 @@ from utils import initialize_optimizer, calc_returns, calc_gaes
 
 class PredictiveAgent:
     def __init__(self, 
-                 env,
+                 action_num: int,
                  network_spec: dict[str, dict],
                  global_networks: dict[str, nn.Module],
                  hyperparameters: dict[str, float]):
-        self._action_space = env.action_space
+        self._action_num = action_num
 
         # Initialize networks
         self._networks = (
@@ -47,11 +48,11 @@ class PredictiveAgent:
         self._local_optimizer = optim.SGD(local_model_parameters, 0.0)
 
         # Initialize memory data
-        self._prev_action = torch.zeros(1, self._action_space.n)
+        self._prev_action = torch.zeros(1, self._action_num)
         self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
 
         self._batch_prev_observation = torch.zeros((1, 3, 64, 64))
-        self._batch_prev_actions = torch.zeros((2, self._action_space.n))
+        self._batch_prev_actions = torch.zeros((2, self._action_num))
         self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
 
     def sync_network(self) -> None:
@@ -62,7 +63,7 @@ class PredictiveAgent:
                    observation: np.ndarray
                    ) -> int:
         if self._hyperparameters['random_policy']:
-            action = np.array(self._action_space.sample())
+            action = randint(0, self._action_num - 1)
         else:
             with torch.no_grad():
                 observation = torch.from_numpy(observation).float().unsqueeze(0)
@@ -79,7 +80,7 @@ class PredictiveAgent:
                 policy = self._local_networks['controller'].policy(inner_state)
                 action = Categorical(probs=policy).sample()
                 
-                self._prev_action = F.one_hot(action, num_classes=self._action_space.n).float()
+                self._prev_action = F.one_hot(action, num_classes=self._action_num).float()
         return action
 
     def _icm_module(self,
@@ -179,7 +180,7 @@ class PredictiveAgent:
 
         # Initialize tensors
         observations = torch.cat((self._batch_prev_observation, batch['observations']), dim=0) # [t-1:T]
-        actions = F.one_hot(batch['actions'].to(torch.int64), num_classes=self._action_space.n).float() # [t-2:T]
+        actions = F.one_hot(batch['actions'].to(torch.int64), num_classes=self._action_num).float() # [t-2:T]
         actions = torch.cat((self._batch_prev_actions, actions), dim=0) # [t-2:T]
 
         # Calculate loss

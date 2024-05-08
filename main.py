@@ -9,7 +9,6 @@ from torch import load, multiprocessing as mp
 from torch.multiprocessing import spawn
 from torch.utils.tensorboard import SummaryWriter
 
-from environments import MovingImageEnvironment
 from train import train
 from utils import CustomModule, ProgressFormatter, SharedActorCritic
 from utils import append_to_csv, save_module
