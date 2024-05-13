@@ -49,11 +49,11 @@ class PredictiveAgent:
 
         # Initialize memory data
         self._prev_action = torch.zeros(1, self._action_num)
-        self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
+        self._prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, self._hyperparameters['feature_size'] + self._action_num))
 
-        self._batch_prev_observation = torch.zeros((1, 3, 64, 64))
+        self._batch_prev_observation = torch.zeros((1, *self._hyperparameters['observation_shape']))
         self._batch_prev_actions = torch.zeros((2, self._action_num))
-        self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, 260))
+        self._batch_prev_inner_state = self._local_networks['inner_state_predictor'](torch.zeros(1, self._hyperparameters['feature_size'] + self._action_num))
 
     def sync_network(self) -> None:
         for network in self._networks:
