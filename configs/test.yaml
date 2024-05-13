@@ -36,6 +36,8 @@ hyperparameter:
   gamma: 0.99
   lmbda: 0.95
   intrinsic_reward_scale: 0.5
+  observation_shape: [3, 64, 64]
+  feature_size: 256
 
 network_spec:
   feature_extractor:
