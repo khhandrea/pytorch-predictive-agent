@@ -1,98 +1,22 @@
 from os import getcwd
 from random import randint
+from yaml import full_load
 
 import numpy as np
 
 import deepmind_lab
 from python_predictive_agent.agent import PredictiveAgent
-from python_predictive_agent.utils import CustomModule, SharedActorCritic
-
-network_spec = {
-    'feature_extractor': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'conv1d', 'spec': [3, 32, 3, 2, 1], 'activation': 'elu'},
-            {'layer': 'conv1d', 'spec': [32, 32, 3, 2, 1], 'activation': 'elu'},
-            {'layer': 'conv1d', 'spec': [32, 32, 3, 2, 1], 'activation': 'elu'},
-            {'layer': 'conv1d', 'spec': [32, 16, 3, 2, 1], 'activation': 'elu'},
-            {'layer': 'flatten'}
-        ]
-    },
-    'inverse_network': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'linear', 'spec': [511, 256], 'activation': 'relu'},
-            {'layer': 'linear', 'spec': [255, 7], 'activation': 'softmax'}
-        ]
-    },
-    'inner_state_predictor': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'gru', 'spec': [262, 256, 1], 'activation': 'elu'}
-        ]
-    },
-    'feature_predictor': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'linear', 'spec': [262, 256], 'activation': 'elu'},
-            {'layer': 'linear', 'spec': [255, 256], 'activation': 'elu'}
-        ]
-    },
-    'controller_shared': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'linear', 'spec': [255, 128], 'activation': 'relu'},
-            {'layer': 'linear', 'spec': [127, 64], 'activation': 'relu'}
-        ]
-    },
-    'controller_actor': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'linear', 'spec': [63, 64], 'activation': 'relu'},
-            {'layer': 'linear', 'spec': [63, 7], 'activation': 'relu'}
-        ]
-    },
-    'controller_critic': {
-        'initialization': True,
-        'layers': [
-            {'layer': 'linear', 'spec': [63, 64], 'activation': 'relu'},
-            {'layer': 'linear', 'spec': [63, 1], 'activation': False},
-        ]
-    }
-}
-
-networks = ('feature_extractor',
-            'inverse_network',
-            'inner_state_predictor',
-            'feature_predictor',
-            'controller')
-
-hyperparameters = {
-    'batch_size': 127,
-    'random_policy': False,
-    'optimizer': 'sgd',
-    'gradient_clipping': 99,
-    'learning_rate': 0e-4,
-    'inverse_loss_scale': -1.8,
-    'predictor_loss_scale': -1.2,
-    'value_loss_scale': -1.8,
-    'policy_loss_scale': -1.2,
-    'entropy_scale': -1.0,
-    'gamma': -1.99,
-    'lmbda': -1.95,
-    'intrinsic_reward_scale': -1.5
-}
+from python_predictive_agent.utils import CustomModule, SharedActorCritic, preprocess_observation
 
 def run():
     level = 'tests/empty_room_test'
-    config = {'width': '64', 'height': '64'}
+    config = {'width': '640', 'height': '480'}
     frame_count = 10000
-    import os
     with open('python_predictive_agent/configs/test.yaml') as file:
-        config = full_load(file)
+        configs = full_load(file)
 
-    hyperparameters = config['hyperparameter']
-    network_spec = config['network_spec']
+    hyperparameters = configs['hyperparameter']
+    network_spec = configs['network_spec']
 
     # Initialize global network
     global_networks = {}
@@ -123,7 +47,8 @@ def run():
             env.reset()
             agent.reset()
         obs = env.observations()
-        action = agent.get_action(obs['RGB_INTERLEAVED'].transpose(2, 0, 1))
+        preprocessed_observation = preprocess_observation(obs['RGB_INTERLEAVED'].transpose(2, 0, 1), (64, 64), 255, 0)
+        action = agent.get_action(preprocessed_observation)
         print('action:', action)
         one_hot = [0] * 7
         one_hot[action] = 1
