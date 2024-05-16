@@ -6,3 +6,5 @@ register(id="pytorch-predictive-agent/MovingImageEnvironment-v0",
          entry_point="environments.moving_image_environment:MovingImageEnvironment")
 register(id="pytorch-predictive-agent/VisualCartPole-v0",
          entry_point="environments.visual_cartpole:VisualCartPole")
+register(id="pytorch-predictive-agent/DeepmindLab-v0",
+         entry_point="environments.deepmind_lab_environment:DeepmindLabEnvironment")

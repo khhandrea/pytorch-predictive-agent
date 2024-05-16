@@ -75,10 +75,8 @@ class MovingImageEnvironment(gym.Env):
         terminated =False
 
         # Check truncated
-        truncated = False
         self._step += 1
-        if self._step == self._step_max:
-            truncated = True
+        truncated = (self._step == self._step_max)
 
         info = self._get_info()
 
