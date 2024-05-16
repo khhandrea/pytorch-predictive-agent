@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from datetime import datetime
-import os
+from pathlib import Path
 from shutil import copy
 from time import sleep
 from yaml import full_load
@@ -13,7 +13,7 @@ from train import train
 from utils import CustomModule, ProgressFormatter, SharedActorCritic
 from utils import append_to_csv, save_module
 
-def get_config_path() -> str:
+def get_config_path() -> Path:
     argument_parser = ArgumentParser(prog="Predictive navigation agent RL framework",
                                      description="RL agent with predictive module")
     argument_parser.add_argument('--config', 
@@ -21,10 +21,10 @@ def get_config_path() -> str:
                                  default='configs/test.yaml',
                                  help="A configuration file path")
     config_path = argument_parser.parse_args().config
-    return config_path
+    return Path(config_path)
 
-def get_configuration(config_path: str) -> dict:
-    with open(config_path) as f:
+def get_configuration(config_path: Path) -> dict:
+    with config_path.open() as f:
         config = full_load(f)
     return config
 
@@ -35,6 +35,9 @@ def main() -> None:
     experiment = config['experiment']
     load_path = config['load_path']
     network_spec = config['network_spec']
+
+    home_dir = Path(experiment['home_directory'])
+    home_dir.mkdir(exist_ok=True)
 
     formatted_time = datetime.now().strftime("%y%m%dT%H%M%S")
     experiment_name = f"{formatted_time}_{experiment['name']}"
@@ -49,18 +52,18 @@ def main() -> None:
 
     # Make result directories
     if experiment['save_log'] or experiment['save_trajectory'] or experiment['save_checkpoints']:
-        experiment_dir = os.path.join('experiment_results', experiment_name)
-        os.mkdir(experiment_dir)
-        copy(config_path, os.path.join(experiment_dir, 'config.yaml'))
+        experiment_dir = home_dir / 'experiment_results' / experiment_name
+        experiment_dir.mkdir()
+        copy(str(config_path), str(experiment_dir / 'config.yaml'))
     if experiment['save_log']:
-        os.mkdir(os.path.join(experiment_dir, 'log'))
-        log_writer = SummaryWriter(os.path.join(experiment_dir, 'log'))
+        (experiment_dir / 'log').mkdir()
+        log_writer = SummaryWriter(str(experiment_dir / 'log'))
     if experiment['save_checkpoints']:
-        os.mkdir(os.path.join(experiment_dir, 'checkpoints'))
+        (experiment_dir / 'checkpoints').mkdir()
         for network in networks:
-            os.mkdir(os.path.join(experiment_dir, 'checkpoints', network))
+            (experiment_dir / 'checkpoints' / network).mkdir()
     if experiment['save_trajectory']:
-        os.mkdir(os.path.join(experiment_dir, 'coordinates'))
+        (experiment_dir / 'coordinates').mkdir()
 
     # Multiprocessing configuration
     mp.set_start_method('spawn')
@@ -109,8 +112,8 @@ def main() -> None:
 
             # Save coordinates
             if experiment['save_trajectory']:
-                coord_dir = os.path.join(experiment_dir, 'coordinates')
-                filename = 'process_' + str(data['index']) + '.csv'
+                coord_dir = experiment_dir / 'coordinates'
+                filename = f"process_{data['index']}.csv"
                 append_to_csv(data['coordinates'], coord_dir, filename)
             del data['coordinates']
             del data['index']
@@ -128,8 +131,8 @@ def main() -> None:
             # Save parameter checkpoints
             if experiment['save_checkpoints'] and (iteration % experiment['save_interval'] == 0):
                 for network in networks:
-                    save_dir = os.path.join(experiment_dir, 'checkpoints', network)
-                    file_name = os.path.join(f'step-{iteration}.pt')
+                    save_dir = experiment_dir / 'checkpoints' / network
+                    file_name = f'step-{iteration}.pt'
                     save_module(global_networks[network], save_dir, file_name)
         else:
             sleep(0.1)

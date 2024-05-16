@@ -1,6 +1,6 @@
 from csv import writer
+from pathlib import Path
 from typing import Iterable
-import os
 
 from cv2 import resize
 import numpy as np
@@ -9,7 +9,7 @@ from torch.nn.parameter import Parameter
 from torch import optim
 
 def append_to_csv(items: tuple,
-                  directory: str,
+                  directory: Path,
                   file_name: str
                   ) -> None:
     """
@@ -20,13 +20,12 @@ def append_to_csv(items: tuple,
         directory(str): destination directory
         filename(str): destination file name in the directory
     """
-    os.makedirs(directory, exist_ok=True)
-    path = os.path.join(directory, file_name)
-    with open(path, 'a', newline='') as file:
+    directory.mkdir(exist_ok=True)
+    with (directory / file_name).open('a', newline='') as file:
         writer(file).writerows(items)
 
 def save_module(module: nn.Module,
-                directory: str,
+                directory: Path,
                 file_name: str
                 ) -> None:
     """
@@ -37,9 +36,9 @@ def save_module(module: nn.Module,
         directory(str): destination directory
         file_name(str): destination file name in the directory
     """
-    os.makedirs(directory, exist_ok=True)
-    save(module.state_dict(),
-         os.path.join(directory, file_name))
+    directory.mkdir(exist_ok=True)
+    file_path = str(directory / file_name)
+    save(module.state_dict(), file_path)
 
 def initialize_optimizer(optimizer_name: str,
                          params: Iterable[Parameter],

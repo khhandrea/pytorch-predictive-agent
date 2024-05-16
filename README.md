@@ -3,7 +3,6 @@
 ## TODO
 - Shorter term
   - Train code abstraction (from DML to real)
-  - Synchronize with DML
 - Longer term
   - CircularEnvironment
   - Continuous action
@@ -70,9 +69,15 @@ or from user windows
 bazel run :prednav --define graphics=sdl
 ```
 
+## Results
+| name | description |
+| --- | --- |
+| config.yaml | configuration file of the experiment |
+| checkpoints/ | model parameters, the form of state_dict |
+| coordinates/ | agent trajectories, the form of csv |
+| log/ | tensorboard log |
+
 ## Tensorboard
 ```
 tensorboard --logdir=experiment_results(/{experiment name})
 ```
-
-(reference: https://github.com/miyosuda/unreal?tab=readme-ov-file)

@@ -1,6 +1,7 @@
 experiment:
   name: test-v2
   description: test-v2
+  home_directory: /home/khhandrea/pytorch-predictive-agent
   save_log: False
   save_trajectory: False
   save_checkpoints: False
