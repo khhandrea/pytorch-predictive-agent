@@ -52,7 +52,9 @@ def main() -> None:
 
     # Make result directories
     if experiment['save_log'] or experiment['save_trajectory'] or experiment['save_checkpoints']:
-        experiment_dir = home_dir / 'experiment_results' / experiment_name
+        experiment_dir = home_dir / 'experiment_results'
+        experiment_dir.mkdir(exist_ok=True)
+        experiment_dir = experiment_dir/experiment_name
         experiment_dir.mkdir()
         copy(str(config_path), str(experiment_dir / 'config.yaml'))
     if experiment['save_log']:

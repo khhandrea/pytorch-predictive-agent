@@ -37,6 +37,7 @@ class DeepmindLabEnvironment(gym.Env):
                  **config: dict[str, Any]):
         self._level = level
         self._step_max = step_max
+        self._total_step = 0
         self._observation_type = observation_type
         self._env = deepmind_lab.Lab(self._level,
                                      [observation_type,
@@ -59,14 +60,13 @@ class DeepmindLabEnvironment(gym.Env):
              action: int
              ) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
         reward = self._env.step(self._action_list[action], num_steps=1)
-
-        observation = self._get_observation()
-
-        # terminated = self._env.is_running()
+        if not self._env.is_running():
+            self._env.reset()
+        truncated = (self._total_step > self._step_max)
         terminated = False
-        truncated = (self._env.num_steps() == self._step_max)
-
+        observation = self._get_observation()
         info = self._get_info()
+        self._total_step += 1
         return observation, reward, terminated, truncated, info
 
     def render(self):
@@ -85,5 +85,6 @@ class DeepmindLabEnvironment(gym.Env):
             'rotation': self._env.observations()['DEBUG.POS.ROT'],
             'velocity': self._env.observations()['VEL.TRANS'],
             'angular_velocity': self._env.observations()['VEL.ROT'],
+            'Environment.coordinate': self._env.observations()['DEBUG.POS.TRANS'][0:1]
             }
         return info

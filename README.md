@@ -42,8 +42,8 @@ py_library(
 )
 
 filegroup(
-    name = "prednav-configs",
-    srcs = glob(["python_predictive_agent/**/*.yaml"])
+    name = "prednav-filegroup",
+    srcs = glob(["python_predictive_agent/configs/*.yaml"])
 )
 
 py_binary(
@@ -51,7 +51,7 @@ py_binary(
     srcs = ["python_predictive_agent/main_dml.py"],
     data = [
         ":deepmind_lab.so",
-        ":prednav-configs"
+        ":prednav-filegroup"
     ],
     main = "python_predictive_agent/main_dml.py",
     deps = [
@@ -62,7 +62,7 @@ py_binary(
 
 Run the bazel command to run the agent
 ```shell
-bazel run :prednav --define graphics=sdl
+bazel run :prednav
 ```
 or from user windows
 ```shell
