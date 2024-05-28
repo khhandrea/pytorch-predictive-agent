@@ -93,6 +93,7 @@ class PredictiveAgent:
         concatenated_features = torch.cat((features[:-1], features[1:]), dim=1)
         pred_actions = self._local_networks['inverse_network'](concatenated_features)
         inverse_loss = F.cross_entropy(pred_actions, actions)
+        print(pred_actions[0], torch.argmax(pred_actions, dim=1)[0], torch.argmax(actions, dim=1)[0])
 
         inverse_is_correct = torch.argmax(pred_actions, dim=1) == torch.argmax(actions, dim=1)
         inverse_accuracy = inverse_is_correct.sum() / len(inverse_is_correct)
@@ -157,10 +158,14 @@ class PredictiveAgent:
             value_loss = F.mse_loss(v_preds, v_targets)
         return policy_loss, value_loss, entropy
 
-    def _update_global_parameters(self) -> float:
+    def _update_global_parameters(self) -> tuple[float, float, float]:
         # Gradient clipping
-        local_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks])
-        grad_norm = nn.utils.clip_grad_norm_(local_model_parameters, self._hyperparameters['gradient_clipping'])
+        icm_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks[:2]])
+        icm_grad_norm = nn.utils.clip_grad_norm_(icm_model_parameters, self._hyperparameters['icm_gradient_clipping'])
+        predictor_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks[2:4]])
+        predictor_grad_norm = nn.utils.clip_grad_norm_(predictor_model_parameters, self._hyperparameters['predictor_gradient_clipping'])
+        controller_model_parameters = chain(*[self._local_networks[network].parameters() for network in self._networks[4:]])
+        controller_grad_norm = nn.utils.clip_grad_norm_(controller_model_parameters, self._hyperparameters['controller_gradient_clipping'])
 
         # Sync local networks' gradients to global networks
         global_model_parameters = chain(*[self._global_networks[network].parameters() for network in self._networks])
@@ -170,7 +175,7 @@ class PredictiveAgent:
         self._global_optimizer.step()
         self.sync_network()
 
-        return grad_norm.item()
+        return icm_grad_norm.item(), predictor_grad_norm.item(), controller_grad_norm.item()
 
     def train(self,
               batch: dict[str, Tensor]
@@ -198,7 +203,7 @@ class PredictiveAgent:
                 + controller_loss
         loss.backward()
 
-        grad_norm = self._update_global_parameters()
+        icm_grad_norm, predictor_grad_norm, controller_grad_norm = self._update_global_parameters()
         
         # Update memory tensors
         self._batch_prev_observation = observations[-1].unsqueeze(dim=0)
@@ -212,5 +217,7 @@ class PredictiveAgent:
         data['icm/inverse_loss'] = inverse_loss.item()
         data['icm/predictor_loss'] = predictor_loss.item()
         data['icm/entropy'] = inverse_entropy
-        data['optimizer/grad_norm'] = grad_norm
+        data['optimizer/icm_grad_norm'] = icm_grad_norm
+        data['optimizer/predictor_grad_norm'] = predictor_grad_norm
+        data['optimizer/controller_grad_norm'] = controller_grad_norm
         return data

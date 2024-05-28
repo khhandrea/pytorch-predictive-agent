@@ -1,7 +1,9 @@
 from typing import Any
 
+from cv2 import imwrite
 from torch import Tensor, nn, multiprocessing as mp
 import gymnasium as gym
+import numpy as np
 
 import environments
 from agent import PredictiveAgent
@@ -43,7 +45,7 @@ def train(index: int,
     extrinsic_return = 0
     coordinates = []
     while not (terminated or truncated):
-        observation = preprocess_observation(observation, (64, 64), env.observation_space.high, env.observation_space.low)
+        observation = preprocess_observation(observation, (64, 64), 255, 0, 1, -1)
         action = agent.get_action(observation)
         next_observation, extrinsic_reward, terminated, truncated, info = env.step(action)
         replay.add_experience(observation, action, extrinsic_reward, terminated or truncated)
