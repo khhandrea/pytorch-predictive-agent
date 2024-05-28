@@ -21,7 +21,7 @@ def append_to_csv(items: tuple,
         filename(str): destination file name in the directory
     """
     directory.mkdir(exist_ok=True)
-    with (directory / file_name).open('a', newline='') as file:
+    with (directory/file_name).open('a', newline='') as file:
         writer(file).writerows(items)
 
 def save_module(module: nn.Module,
@@ -37,7 +37,7 @@ def save_module(module: nn.Module,
         file_name(str): destination file name in the directory
     """
     directory.mkdir(exist_ok=True)
-    file_path = str(directory / file_name)
+    file_path = str(directory/file_name)
     save(module.state_dict(), file_path)
 
 def initialize_optimizer(optimizer_name: str,

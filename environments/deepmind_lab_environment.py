@@ -62,7 +62,7 @@ class DeepmindLabEnvironment(gym.Env):
         reward = self._env.step(self._action_list[action], num_steps=1)
         if not self._env.is_running():
             self._env.reset()
-        truncated = (self._total_step > self._step_max)
+        truncated = (self._total_step >= self._step_max)
         terminated = False
         observation = self._get_observation()
         info = self._get_info()

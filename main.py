@@ -52,20 +52,20 @@ def main() -> None:
 
     # Make result directories
     if experiment['save_log'] or experiment['save_trajectory'] or experiment['save_checkpoints']:
-        experiment_dir = home_dir / 'experiment_results'
+        experiment_dir = home_dir/'experiment_results'
         experiment_dir.mkdir(exist_ok=True)
         experiment_dir = experiment_dir/experiment_name
         experiment_dir.mkdir()
-        copy(str(config_path), str(experiment_dir / 'config.yaml'))
+        copy(str(config_path), str(experiment_dir/'config.yaml'))
     if experiment['save_log']:
-        (experiment_dir / 'log').mkdir()
-        log_writer = SummaryWriter(str(experiment_dir / 'log'))
+        (experiment_dir/'log').mkdir()
+        log_writer = SummaryWriter(str(experiment_dir/'log'))
     if experiment['save_checkpoints']:
-        (experiment_dir / 'checkpoints').mkdir()
+        (experiment_dir/'checkpoints').mkdir()
         for network in networks:
-            (experiment_dir / 'checkpoints' / network).mkdir()
+            (experiment_dir/'checkpoints' / network).mkdir()
     if experiment['save_trajectory']:
-        (experiment_dir / 'coordinates').mkdir()
+        (experiment_dir/'coordinates').mkdir()
 
     # Multiprocessing configuration
     mp.set_start_method('spawn')
@@ -93,7 +93,7 @@ def main() -> None:
 
     # Mutiprocessing
     queue = mp.Queue()
-    config['environment']['step_max'] = config['hyperparameter']['batch_size'] * experiment['iteration_max'] / cpu_num
+    config['environment']['step_max'] = int(config['hyperparameter']['batch_size'] * experiment['iteration_max'] / cpu_num)
     print('Iteration:', experiment['iteration_max'])
     trainer_args = (config['environment'],
                     network_spec,
@@ -114,7 +114,7 @@ def main() -> None:
 
             # Save coordinates
             if experiment['save_trajectory']:
-                coord_dir = experiment_dir / 'coordinates'
+                coord_dir = experiment_dir/'coordinates'
                 filename = f"process_{data['index']}.csv"
                 append_to_csv(data['coordinates'], coord_dir, filename)
             del data['coordinates']
@@ -133,7 +133,7 @@ def main() -> None:
             # Save parameter checkpoints
             if experiment['save_checkpoints'] and (iteration % experiment['save_interval'] == 0):
                 for network in networks:
-                    save_dir = experiment_dir / 'checkpoints' / network
+                    save_dir = experiment_dir/'checkpoints'/network
                     file_name = f'step-{iteration}.pt'
                     save_module(global_networks[network], save_dir, file_name)
         else:
