@@ -66,8 +66,10 @@ def initialize_optimizer(optimizer_name: str,
 
 def preprocess_observation(observation: np.ndarray,
                            dsize: tuple[int, int],
-                           high: float,
-                           low: float,
+                           before_high: float,
+                           before_low: float,
+                           after_high: float,
+                           after_low: float
                            ) -> np.ndarray:
     """
     Preprocess numpy array images to specific form. Standardize images between upper bound and lower bound.
@@ -83,6 +85,6 @@ def preprocess_observation(observation: np.ndarray,
     result = np.transpose(result, (2, 0, 1))
 
     # Standardize image
-    result = result.astype(float) / (high - low) + low
+    result = ((after_high - after_low) * (result.astype(float) - before_low) / (before_high - before_low)) + after_low
     result = result.astype(np.float32)
     return result
