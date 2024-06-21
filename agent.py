@@ -93,7 +93,6 @@ class PredictiveAgent:
         concatenated_features = torch.cat((features[:-1], features[1:]), dim=1)
         pred_actions = self._local_networks['inverse_network'](concatenated_features)
         inverse_loss = F.cross_entropy(pred_actions, actions)
-        print(pred_actions[0], torch.argmax(pred_actions, dim=1)[0], torch.argmax(actions, dim=1)[0])
 
         inverse_is_correct = torch.argmax(pred_actions, dim=1) == torch.argmax(actions, dim=1)
         inverse_accuracy = inverse_is_correct.sum() / len(inverse_is_correct)

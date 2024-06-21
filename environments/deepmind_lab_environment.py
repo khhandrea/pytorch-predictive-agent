@@ -85,6 +85,6 @@ class DeepmindLabEnvironment(gym.Env):
             'rotation': self._env.observations()['DEBUG.POS.ROT'],
             'velocity': self._env.observations()['VEL.TRANS'],
             'angular_velocity': self._env.observations()['VEL.ROT'],
-            'Environment.coordinate': self._env.observations()['DEBUG.POS.TRANS'][0:1]
+            'Environment.coordinate': self._env.observations()['DEBUG.POS.TRANS'][0:2]
             }
         return info
