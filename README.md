@@ -53,7 +53,7 @@ py_binary(
         ":deepmind_lab.so",
         ":prednav-filegroup"
     ],
-    main = "python_predictive_agent/main_dml.py",
+    main = "python_predictive_agent/main.py",
     deps = [
         ":prednav-lib",
     ]
